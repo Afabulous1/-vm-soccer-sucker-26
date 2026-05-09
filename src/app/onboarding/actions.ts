@@ -3,9 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AVATARS } from "@/lib/avatars";
+import { validateUsername } from "@/lib/utils";
 
 interface CreateProfileInput {
-  username: string;
   avatarKey: string;
 }
 
@@ -17,22 +17,9 @@ interface ActionResult {
 export async function createProfile(
   input: CreateProfileInput
 ): Promise<ActionResult> {
-  const { username, avatarKey } = input;
+  const { avatarKey } = input;
 
-  if (!username || username.trim().length < 2 || username.trim().length > 20) {
-    return { error: "Användarnamnet måste vara 2–20 tecken." };
-  }
-
-  const cleanUsername = username.trim();
-
-  if (!/^[a-zA-Z0-9_\-åäöÅÄÖ ]+$/.test(cleanUsername)) {
-    return {
-      error: "Endast bokstäver, siffror, mellanslag och _ - är tillåtna.",
-    };
-  }
-
-  const validAvatar = AVATARS.find((a) => a.key === avatarKey);
-  if (!validAvatar) {
+  if (!AVATARS.find((a) => a.key === avatarKey)) {
     return { error: "Välj en avatar!" };
   }
 
@@ -41,19 +28,26 @@ export async function createProfile(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { error: "Du måste vara inloggad." };
-  }
+  if (!user) return { error: "Du måste vara inloggad." };
+
+  // Username was stored in user_metadata at signup
+  const username = (user.user_metadata?.username as string | undefined)?.trim();
+
+  const usernameError = validateUsername(username ?? "");
+  if (usernameError) return { error: `Ogiltigt spelarnamn: ${usernameError}` };
 
   const { error: profileError } = await supabase.from("profiles").insert({
     user_id: user.id,
-    username: cleanUsername,
+    username: username!,
     avatar_key: avatarKey,
   });
 
   if (profileError) {
     if (profileError.code === "23505") {
-      return { error: "Det användarnamnet är redan taget. Försök ett annat!" };
+      return {
+        error:
+          "Det spelarnamnet är redan taget. Logga ut och skapa ett nytt konto med ett annat namn.",
+      };
     }
     return { error: "Något gick fel. Försök igen!" };
   }
@@ -68,14 +62,13 @@ export async function createProfile(
 export async function checkUsername(
   username: string
 ): Promise<{ available: boolean }> {
-  if (!username || username.trim().length < 2) return { available: false };
+  if (!username || username.trim().length < 3) return { available: false };
 
-  // Admin client needed: profiles are not publicly readable after security tightening
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
     .select("id")
-    .ilike("username", username.trim()) // case-insensitive match
+    .ilike("username", username.trim())
     .single();
 
   return { available: !data };

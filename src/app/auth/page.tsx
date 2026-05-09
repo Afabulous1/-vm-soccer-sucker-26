@@ -1,65 +1,101 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { getBaseUrl } from "@/lib/utils";
+import { deriveEmail, validateUsername } from "@/lib/utils";
+
+type Mode = "signup" | "signin";
 
 export default function AuthPage() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  const router = useRouter();
   const supabase = createClient();
 
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
+  const [mode, setMode] = useState<Mode>("signup");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [supabaseInfo, setSupabaseInfo] = useState(false);
+
+  function switchMode(next: Mode) {
+    setMode(next);
     setError(null);
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${getBaseUrl()}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      setError("Något gick fel. Kontrollera din e-post och försök igen.");
-    } else {
-      setSent(true);
-    }
-    setLoading(false);
+    setPassword("");
+    setConfirmPassword("");
   }
 
-  async function handleGoogle() {
-    setGoogleLoading(true);
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${getBaseUrl()}/auth/callback`,
-      },
-    });
+    const usernameError = validateUsername(username);
+    if (usernameError) { setError(usernameError); return; }
 
-    if (error) {
-      setError("Inloggning med Google misslyckades. Försök igen.");
-      setGoogleLoading(false);
+    if (password.length < 6) {
+      setError("Lösenordet måste vara minst 6 tecken.");
+      return;
+    }
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setError("Lösenorden matchar inte.");
+      return;
+    }
+
+    setLoading(true);
+    const email = deriveEmail(username);
+
+    if (mode === "signup") {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { username: username.trim() } },
+      });
+
+      if (signUpError) {
+        if (
+          signUpError.message.toLowerCase().includes("already registered") ||
+          signUpError.message.toLowerCase().includes("already exists")
+        ) {
+          setError("Det spelarnamnet är redan taget. Välj ett annat!");
+        } else {
+          setError("Något gick fel vid registrering. Försök igen.");
+        }
+        setLoading(false);
+        return;
+      }
+
+      router.push("/onboarding");
+      router.refresh();
+    } else {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError("Fel spelarnamn eller lösenord. Försök igen.");
+        setLoading(false);
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
     }
   }
 
   return (
     <div className="pitch-bg min-h-screen flex items-center justify-center p-4">
-      {/* Decorative blobs */}
+      {/* Background blobs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-pitch opacity-40 blur-3xl" />
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-pitch-light opacity-30 blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-md">
-        {/* Logo / Header */}
+        {/* Logo */}
         <div className="text-center mb-8">
           <div className="text-7xl mb-3">⚽</div>
           <h1 className="font-bebas text-5xl sm:text-6xl text-gold tracking-widest">
@@ -72,122 +108,176 @@ export default function AuthPage() {
 
         {/* Card */}
         <div className="bg-pitch/80 backdrop-blur-sm border border-pitch-light/40 rounded-2xl p-8 shadow-2xl">
-          {sent ? (
-            <div className="text-center py-4">
-              <div className="text-5xl mb-4">📬</div>
-              <h2 className="font-bebas text-3xl text-gold mb-2">
-                KOLLA INKORGEN!
-              </h2>
-              <p className="text-green-300 text-sm leading-relaxed">
-                Vi har skickat en magisk länk till{" "}
-                <span className="text-white font-semibold">{email}</span>.
-                Klicka på länken för att logga in!
+
+          {/* Mode toggle */}
+          <div className="flex rounded-xl bg-pitch-dark border border-pitch-light/30 p-1 mb-6">
+            {(["signup", "signin"] as Mode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => switchMode(m)}
+                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  mode === m
+                    ? "bg-gold text-pitch-dark"
+                    : "text-green-400 hover:text-white"
+                }`}
+              >
+                {m === "signup" ? "Ny spelare" : "Logga in"}
+              </button>
+            ))}
+          </div>
+
+          {/* Privacy note — signup only */}
+          {mode === "signup" && (
+            <div className="flex items-start gap-2 mb-5 p-3 rounded-lg bg-green-900/30 border border-green-700/40 text-green-300 text-xs">
+              <span className="text-base leading-none mt-0.5">🔒</span>
+              <p>
+                <strong>Ingen e-post behövs.</strong> Du loggar in med bara
+                ditt spelarnamn och lösenord. Dina uppgifter delas aldrig
+                med andra spelare.
               </p>
-              <button
-                onClick={() => setSent(false)}
-                className="mt-6 text-green-400 text-sm underline underline-offset-2"
-              >
-                Använd en annan e-post
-              </button>
             </div>
-          ) : (
-            <>
-              <h2 className="font-bebas text-3xl text-white text-center mb-6 tracking-wide">
-                LOGGA IN FÖR ATT BÖRJA TIPPA
-              </h2>
+          )}
 
-              {error && (
-                <div className="mb-4 p-3 rounded-lg bg-red-900/50 border border-red-500/50 text-red-300 text-sm text-center">
-                  {error}
-                </div>
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-900/50 border border-red-500/50 text-red-300 text-sm text-center animate-shake">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Username */}
+            <div>
+              <label className="block text-green-300 text-xs font-semibold mb-1 uppercase tracking-wider">
+                Spelarnamn
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => { setUsername(e.target.value); setError(null); }}
+                required
+                maxLength={20}
+                placeholder={mode === "signup" ? "T.ex. Evige_Svensson" : "Ditt spelarnamn"}
+                autoComplete="username"
+                className="w-full bg-pitch-dark border border-pitch-light/50 rounded-lg px-4 py-3 text-white placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition"
+              />
+              {mode === "signup" && (
+                <p className="mt-1 text-green-600 text-xs">
+                  Bokstäver, siffror, _ och - · 3–20 tecken
+                </p>
               )}
+            </div>
 
-              {/* Magic link form */}
-              <form onSubmit={handleMagicLink} className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-green-300 text-xs font-semibold mb-1 uppercase tracking-wider"
-                  >
-                    E-postadress
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    placeholder="ditt@email.se"
-                    className="w-full bg-pitch-dark border border-pitch-light/50 rounded-lg px-4 py-3 text-white placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition"
-                  />
-                </div>
+            {/* Password */}
+            <div>
+              <label className="block text-green-300 text-xs font-semibold mb-1 uppercase tracking-wider">
+                Lösenord
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                  required
+                  minLength={6}
+                  placeholder="Minst 6 tecken"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  className="w-full bg-pitch-dark border border-pitch-light/50 rounded-lg px-4 py-3 text-white placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition pr-12"
+                />
                 <button
-                  type="submit"
-                  disabled={loading || !email}
-                  className="w-full bg-gold hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-pitch-dark font-bold py-3 px-6 rounded-lg transition-all duration-200 active:scale-95 font-bebas text-xl tracking-widest"
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 hover:text-green-300 text-sm"
+                  tabIndex={-1}
                 >
-                  {loading ? "SKICKAR..." : "🔮 SKICKA MAGISK LÄNK"}
+                  {showPassword ? "Dölj" : "Visa"}
                 </button>
-              </form>
-
-              {/* Divider */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-pitch-light/30" />
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-pitch px-3 text-green-500 text-sm">
-                    eller
-                  </span>
-                </div>
               </div>
+            </div>
 
-              {/* Google OAuth */}
-              <button
-                onClick={handleGoogle}
-                disabled={googleLoading}
-                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 font-semibold py-3 px-6 rounded-lg transition-all duration-200 active:scale-95"
-              >
-                {googleLoading ? (
-                  <span className="text-gray-600">Omdirigerar...</span>
-                ) : (
-                  <>
-                    <GoogleIcon />
-                    <span>Fortsätt med Google</span>
-                  </>
-                )}
-              </button>
-            </>
+            {/* Confirm password — signup only */}
+            {mode === "signup" && (
+              <div>
+                <label className="block text-green-300 text-xs font-semibold mb-1 uppercase tracking-wider">
+                  Bekräfta lösenord
+                </label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setError(null); }}
+                  required
+                  placeholder="Upprepa lösenordet"
+                  autoComplete="new-password"
+                  className="w-full bg-pitch-dark border border-pitch-light/50 rounded-lg px-4 py-3 text-white placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50 transition"
+                />
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gold hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-pitch-dark font-bebas text-xl tracking-widest py-3 px-6 rounded-lg transition-all duration-200 active:scale-95 mt-2"
+            >
+              {loading
+                ? "LADDAR..."
+                : mode === "signup"
+                ? "SKAPA KONTO & BÖRJA TIPPA ⚽"
+                : "LOGGA IN →"}
+            </button>
+          </form>
+
+          {/* Forgot password hint */}
+          {mode === "signin" && (
+            <p className="text-center text-green-600 text-xs mt-4">
+              Glömt lösenordet? Kontakta den som bjöd in dig så kan de återställa ditt konto.
+            </p>
           )}
         </div>
 
-        <p className="text-center text-green-700 text-xs mt-6">
-          Inget konto behövs — logga bara in så sätter vi igång! 🚀
-        </p>
+        {/* Supabase trust badge */}
+        <div className="mt-4 rounded-xl border border-pitch-light/30 bg-pitch/60 p-4">
+          <button
+            type="button"
+            onClick={() => setSupabaseInfo((v) => !v)}
+            className="w-full flex items-center justify-between text-green-400 text-xs"
+          >
+            <span className="flex items-center gap-2">
+              <span>🔐</span>
+              <span>Inloggningen hanteras av <strong className="text-green-300">Supabase</strong> — vad är det?</span>
+            </span>
+            <span className="text-green-600">{supabaseInfo ? "▲" : "▼"}</span>
+          </button>
+
+          {supabaseInfo && (
+            <div className="mt-3 text-green-400 text-xs space-y-2 border-t border-pitch-light/20 pt-3">
+              <p>
+                <strong className="text-green-300">Supabase</strong> är en välkänd och
+                pålitlig autentiseringstjänst som används av tusentals applikationer
+                världen över — ungefär som att din dörr har ett riktigt lås istället
+                för ett hemmagjort.
+              </p>
+              <p>
+                När du skapar ett konto ser du möjligtvis "Supabase" i webbläsaren
+                eller i en bekräftelsemejl. Det är helt normalt och en del av
+                hur den här appen håller ditt konto säkert.
+              </p>
+              <p>
+                <strong className="text-green-300">Ditt spelarnamn och lösenord</strong> är
+                allt som behövs — din e-post sparas aldrig i appen och syns
+                aldrig för andra spelare.
+              </p>
+              <a
+                href="https://supabase.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-gold underline underline-offset-2 mt-1"
+              >
+                Läs mer om Supabase →
+              </a>
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24">
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-      />
-    </svg>
   );
 }
