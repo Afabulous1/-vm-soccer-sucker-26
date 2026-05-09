@@ -9,13 +9,13 @@ export default function Home() {
           VM SOCCER SUCKER 26
         </h1>
         <p className="text-green-300 text-lg mb-8">
-          Tippa VM 2026 med kompisgänget — för ära och heder!
+          Gissa VM 2026 med kompisgänget — för ära och heder!
         </p>
         <Link
           href="/auth"
           className="inline-block bg-gold hover:bg-yellow-400 text-pitch-dark font-bebas text-2xl tracking-widest px-10 py-4 rounded-xl transition-all duration-200 active:scale-95 shadow-lg shadow-gold/20"
         >
-          BÖRJA TIPPA NU 🚀
+          BÖRJA GISSA NU 🚀
         </Link>
         <p className="text-green-700 text-xs mt-6">
           Gratis · Bara för skojs skull · VM 2026

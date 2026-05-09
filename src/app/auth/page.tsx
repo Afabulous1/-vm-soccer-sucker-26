@@ -103,7 +103,7 @@ export default function AuthPage() {
             VM SOCCER SUCKER 26
           </h1>
           <p className="mt-2 text-green-300 text-sm">
-            Tippa VM 2026 med kompisgänget — för ära och heder!
+            Gissa VM 2026 med kompisgänget — för ära och heder!
           </p>
         </div>
 
@@ -222,7 +222,7 @@ export default function AuthPage() {
               {loading
                 ? "LADDAR..."
                 : mode === "signup"
-                ? "SKAPA KONTO & BÖRJA TIPPA ⚽"
+                ? "SKAPA KONTO & BÖRJA GISSA ⚽"
                 : "LOGGA IN →"}
             </button>
           </form>

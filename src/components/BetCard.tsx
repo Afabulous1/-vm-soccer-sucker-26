@@ -17,9 +17,9 @@ interface Props {
 }
 
 const CATEGORY_STYLES: Record<BetCategory, { border: string; badge: string; label: string }> = {
-  turnering: { border: "border-turnering/40", badge: "bg-turnering/20 text-blue-300",  label: "Turneringstips" },
-  match:     { border: "border-matchtips/40", badge: "bg-matchtips/20 text-violet-300", label: "Matchtips" },
-  kaos:      { border: "border-kaos/40",      badge: "bg-kaos/20      text-rose-300",   label: "Kaostips" },
+  turnering: { border: "border-turnering/40", badge: "bg-turnering/20 text-blue-300",  label: "Turneringsgissning" },
+  match:     { border: "border-matchtips/40", badge: "bg-matchtips/20 text-violet-300", label: "Matchgissning" },
+  kaos:      { border: "border-kaos/40",      badge: "bg-kaos/20      text-rose-300",   label: "Kaosgissning" },
 };
 
 const STATUS_STYLES: Record<BetStatus, { pill: string; label: string }> = {

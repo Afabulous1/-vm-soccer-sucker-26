@@ -18,7 +18,7 @@ const bebasNeue = Bebas_Neue({
 
 export const metadata: Metadata = {
   title: "VM Soccer Sucker 26 ⚽",
-  description: "Tippa VM 2026 med kompisgänget — för ära och heder!",
+  description: "Gissa VM 2026 med kompisgänget — för ära och heder!",
 };
 
 export default function RootLayout({
