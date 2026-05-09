@@ -1,0 +1,58 @@
+name: Sync WC 2026 Data
+
+# Runs every 12 hours. The job itself checks whether today is within the
+# tournament window (June 10 – July 19 2026) and exits early if not.
+on:
+  schedule:
+    - cron: "0 6,18 * * *"   # 06:00 and 18:00 UTC daily
+  workflow_dispatch:           # allow manual trigger from GitHub UI
+
+jobs:
+  sync:
+    name: Sync fixtures & results
+    runs-on: ubuntu-latest
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL:  ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      FOOTBALL_DATA_API_KEY:     ${{ secrets.FOOTBALL_DATA_API_KEY }}
+
+    steps:
+      - name: Check tournament window
+        id: window
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          START="2026-06-10"
+          END="2026-07-19"
+          if [[ "$TODAY" < "$START" || "$TODAY" > "$END" ]]; then
+            echo "Outside tournament window ($TODAY). Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Inside tournament window ($TODAY). Running sync."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.window.outputs.skip == 'false'
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        if: steps.window.outputs.skip == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.window.outputs.skip == 'false'
+        run: npm ci
+
+      - name: Sync fixtures
+        if: steps.window.outputs.skip == 'false'
+        run: npm run sync:matches
+
+      # Results sync: respects football-data.org 10 req/min free-tier limit.
+      # On match days this updates scores + first_scorer for started matches.
+      - name: Sync results
+        if: steps.window.outputs.skip == 'false'
+        run: npm run sync:results
