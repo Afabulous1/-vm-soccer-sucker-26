@@ -2,70 +2,36 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatar } from "@/lib/avatars";
-import { TOURNAMENT_LOCK, TURNERING_BETS, KAOS_BETS, MATCH_BET_TYPES } from "@/lib/bets";
+import { BETTING_OPENS, TOURNAMENT_LOCK, TURNERING_BETS, KAOS_BETS, MATCH_BET_TYPES } from "@/lib/bets";
 import AvatarCard from "@/components/AvatarCard";
-import CountdownTimer from "@/components/CountdownTimer";
+import BigCountdown from "@/components/BigCountdown";
+import BottomNav from "@/components/BottomNav";
+import MusicPlayer from "@/components/MusicPlayer";
+import FeatureGuide from "@/components/FeatureGuide";
+import LoginWelcome from "@/components/LoginWelcome";
+import LeaderboardTabs from "./LeaderboardTabs";
 import TrashTalkWall from "./TrashTalkWall";
-import type { LeaderboardEntry } from "@/types/database";
 
 function RankBadge({ rank }: { rank: number | null }) {
   if (!rank) return null;
   const style =
     rank === 1 ? "bg-gold/20 text-gold border-gold/40" :
     rank === 2 ? "bg-slate-400/20 text-slate-300 border-slate-400/40" :
-    rank === 3 ? "bg-amber-700/20 text-amber-600 border-amber-700/40" :
+    rank === 3 ? "bg-amber-700/20 text-amber-500 border-amber-700/40" :
                  "bg-pitch-light/20 text-green-400 border-pitch-light/40";
-  const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+  const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-bold ${style}`}>
-      {medal} #{rank}
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-bold ${style}`}>
+      {medal}
     </span>
   );
 }
 
-function LeaderboardRow({
-  entry,
-  isCurrentUser,
-  index,
-}: {
-  entry: LeaderboardEntry;
-  isCurrentUser: boolean;
-  index: number;
-}) {
-  const avatar = getAvatar(entry.avatar_key);
-  const rankLabel =
-    index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${entry.rank}`;
-  const rankStyle =
-    index === 0 ? "text-gold font-bebas text-2xl" :
-    index === 1 ? "text-slate-300 font-bebas text-xl" :
-    index === 2 ? "text-amber-600 font-bebas text-xl" :
-                  "text-green-600 font-bold text-sm";
-
-  return (
-    <div className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-      isCurrentUser ? "bg-gold/10 border-l-2 border-gold" : "hover:bg-pitch-light/10"
-    }`}>
-      <span className={`w-8 text-center shrink-0 ${rankStyle}`}>{rankLabel}</span>
-      <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br ${avatar?.gradient ?? "from-pitch to-pitch-light"}`}>
-        {avatar?.emoji ?? "⚽"}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate ${isCurrentUser ? "text-gold" : "text-white"}`}>
-          {entry.username}
-          {isCurrentUser && <span className="text-xs text-gold/60 ml-1">(du)</span>}
-        </p>
-        {entry.current_streak > 0 && (
-          <p className="text-xs text-orange-400">🔥 {entry.current_streak} rätta i rad</p>
-        )}
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-white font-bold text-sm">{entry.points_total} p</p>
-        {entry.weekly_points > 0 && (
-          <p className="text-green-500 text-xs">+{entry.weekly_points}p/vecka</p>
-        )}
-      </div>
-    </div>
-  );
+function formatKickoff(iso: string) {
+  return new Date(iso).toLocaleDateString("sv-SE", {
+    weekday: "short", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZone: "Europe/Stockholm",
+  });
 }
 
 export default async function DashboardPage() {
@@ -88,214 +54,219 @@ export default async function DashboardPage() {
     { data: messages },
     { data: awardedBets },
     { data: pendingBets },
-    { count: scheduledMatchCount },
+    { data: recentMatches },
+    { data: upcomingMatches },
   ] = await Promise.all([
-    supabase
-      .from("leaderboard_cache")
-      .select("*")
-      .order("rank", { ascending: true })
-      .limit(10),
-    supabase
-      .from("leaderboard_cache")
+    // Full leaderboard for tabs (sorted by rank)
+    supabase.from("leaderboard_cache").select("*").order("rank", { ascending: true }),
+    supabase.from("leaderboard_cache")
       .select("rank, current_streak, weekly_points")
-      .eq("user_id", user.id)
-      .single(),
-    supabase
-      .from("bets")
-      .select("bet_category")
-      .eq("user_id", user.id),
-    supabase
-      .from("trash_talk")
-      .select("*")
-      .order("created_at", { ascending: true })
-      .limit(40),
+      .eq("user_id", user.id).single(),
+    supabase.from("bets").select("bet_category").eq("user_id", user.id),
+    supabase.from("trash_talk").select("*").order("created_at", { ascending: true }).limit(40),
     // Points already awarded
-    supabase
-      .from("bets")
-      .select("points_awarded")
-      .eq("user_id", user.id)
-      .not("points_awarded", "is", null),
-    // Pending bets (locked, not yet evaluated)
-    supabase
-      .from("bets")
-      .select("points_wager")
-      .eq("user_id", user.id)
-      .not("locked_at", "is", null)
-      .is("is_correct", null),
-    // Count of remaining scheduled matches
-    supabase
-      .from("matches")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "scheduled"),
+    supabase.from("bets").select("points_awarded")
+      .eq("user_id", user.id).not("points_awarded", "is", null),
+    // Pending: locked but not yet evaluated
+    supabase.from("bets").select("points_wager")
+      .eq("user_id", user.id).not("locked_at", "is", null).is("is_correct", null),
+    // Recent finished matches (last 6)
+    supabase.from("matches")
+      .select("id, home_team, away_team, home_score, away_score, kickoff_at, stage, group_name, status")
+      .eq("status", "finished")
+      .order("kickoff_at", { ascending: false }).limit(6),
+    // Upcoming matches (next 4)
+    supabase.from("matches")
+      .select("id, home_team, away_team, kickoff_at, stage, group_name")
+      .eq("status", "scheduled")
+      .order("kickoff_at", { ascending: true }).limit(4),
   ]);
 
+  // ── Bet counts ────────────────────────────────────────────────────────────
   const betCounts = {
     turnering: bets?.filter((b) => b.bet_category === "turnering").length ?? 0,
     kaos:      bets?.filter((b) => b.bet_category === "kaos").length ?? 0,
     match:     bets?.filter((b) => b.bet_category === "match").length ?? 0,
   };
 
-  // Potential score calculation
-  const awarded = (awardedBets ?? []).reduce(
-    (sum, b) => sum + ((b.points_awarded as number | null) ?? 0),
-    0,
-  );
-  const pending = (pendingBets ?? []).reduce(
-    (sum, b) => sum + ((b.points_wager as number | null) ?? 0),
-    0,
-  );
+  // ── Potential score ───────────────────────────────────────────────────────
+  const awarded = (awardedBets ?? []).reduce((s, b) => s + ((b.points_awarded as number) ?? 0), 0);
+  const pending = (pendingBets  ?? []).reduce((s, b) => s + ((b.points_wager  as number) ?? 0), 0);
 
-  // Max unplaced turnering/kaos points (bets not yet placed)
-  const turneringMax = TURNERING_BETS.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
-  const kaosMax = KAOS_BETS.reduce((s, b) => s + b.points, 0);
-  const matchMax = MATCH_BET_TYPES.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
+  const turneringMax   = TURNERING_BETS.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
+  const kaosMax        = KAOS_BETS.reduce((s, b) => s + b.points, 0);
+  const matchMax       = MATCH_BET_TYPES.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
+  const turneringUnplaced = betCounts.turnering < TURNERING_BETS.length
+    ? ((TURNERING_BETS.length - betCounts.turnering) / TURNERING_BETS.length) * turneringMax : 0;
+  const kaosUnplaced   = betCounts.kaos < KAOS_BETS.length
+    ? ((KAOS_BETS.length - betCounts.kaos) / KAOS_BETS.length) * kaosMax : 0;
+  const openMatch      = (upcomingMatches?.length ?? 0) * matchMax;
+  const open           = Math.round(turneringUnplaced + kaosUnplaced + openMatch);
+  const maxPossible    = awarded + pending + open;
 
-  const placedTurnering = betCounts.turnering;
-  const placedKaos = betCounts.kaos;
-
-  // Unplaced tournament/kaos points (very rough — we don't know which specific
-  // bets are unplaced, so use the proportion of unplaced bets × average max)
-  const turneringUnplaced =
-    placedTurnering < TURNERING_BETS.length
-      ? ((TURNERING_BETS.length - placedTurnering) / TURNERING_BETS.length) * turneringMax
-      : 0;
-  const kaosUnplaced =
-    placedKaos < KAOS_BETS.length
-      ? ((KAOS_BETS.length - placedKaos) / KAOS_BETS.length) * kaosMax
-      : 0;
-
-  const remainingMatches = scheduledMatchCount ?? 0;
-  const open = Math.round(
-    turneringUnplaced + kaosUnplaced + remainingMatches * matchMax,
-  );
-  const maxPossible = awarded + pending + open;
-
-  const avatar = getAvatar(profile.avatar_key);
-  const isLocked = new Date() >= TOURNAMENT_LOCK;
-  const myRank = myRankData?.rank ?? null;
-  const streak = myRankData?.current_streak ?? 0;
-  const weeklyPts = myRankData?.weekly_points ?? 0;
+  // ── State flags ───────────────────────────────────────────────────────────
+  const now           = new Date();
+  const bettingOpen   = now >= BETTING_OPENS;
+  const isLocked      = now >= TOURNAMENT_LOCK;
+  const avatar        = getAvatar(profile.avatar_key);
+  const myRank        = myRankData?.rank ?? null;
+  const streak        = myRankData?.current_streak ?? 0;
+  const weeklyPts     = myRankData?.weekly_points ?? 0;
 
   const betCategories = [
     {
-      href: "/bets/turnering",
-      emoji: "🏆",
-      label: "Turnering",
-      done: betCounts.turnering,
-      total: TURNERING_BETS.length,
-      color: "border-blue-500/40 bg-blue-900/20",
+      href: "/bets/turnering", emoji: "🏆", label: "Turnering",
+      done: betCounts.turnering, total: TURNERING_BETS.length,
+      color: "border-blue-500/30 bg-gradient-to-br from-blue-900/40 to-blue-800/20",
       badge: "bg-blue-500/20 text-blue-300",
     },
     {
-      href: "/bets/match",
-      emoji: "⚽",
-      label: "Match",
-      done: betCounts.match,
-      total: null,
-      color: "border-violet-500/40 bg-violet-900/20",
+      href: "/bets/match", emoji: "⚽", label: "Match",
+      done: betCounts.match, total: null,
+      color: "border-violet-500/30 bg-gradient-to-br from-violet-900/40 to-violet-800/20",
       badge: "bg-violet-500/20 text-violet-300",
     },
     {
-      href: "/bets/kaos",
-      emoji: "🔥",
-      label: "Kaos",
-      done: betCounts.kaos,
-      total: KAOS_BETS.length,
-      color: "border-rose-500/40 bg-rose-900/20",
+      href: "/bets/kaos", emoji: "🔥", label: "Kaos",
+      done: betCounts.kaos, total: KAOS_BETS.length,
+      color: "border-rose-500/30 bg-gradient-to-br from-rose-900/40 to-rose-800/20",
       badge: "bg-rose-500/20 text-rose-300",
     },
   ];
 
   return (
     <div className="pitch-bg min-h-screen">
+      {/* Subtle pitch grid overlay */}
+      <div className="pointer-events-none fixed inset-0 opacity-[0.025]"
+        style={{ backgroundImage: "repeating-linear-gradient(0deg,#fff,#fff 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,#fff,#fff 1px,transparent 1px,transparent 60px)" }}
+      />
+
+      {/* Client-only interactive components */}
+      <FeatureGuide />
+      <LoginWelcome username={profile.username} />
+      <MusicPlayer />
+
       {/* Top nav */}
-      <nav className="sticky top-0 z-40 bg-pitch-dark/90 backdrop-blur border-b border-pitch-light/30">
+      <nav className="relative sticky top-0 z-40 bg-pitch-dark/95 backdrop-blur border-b border-pitch-light/20">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/dashboard" className="font-bebas text-gold text-2xl tracking-widest">
+          <Link href="/dashboard" className="font-bebas text-gold text-2xl tracking-widest hover:text-yellow-400 transition-colors">
             ⚽ VM 26
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/bets" className="text-green-400 hover:text-white text-sm font-semibold transition-colors">
-              Gissningar →
-            </Link>
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br ${avatar?.gradient ?? "from-pitch to-pitch-light"}`}>
+            {!isLocked && bettingOpen && (
+              <Link
+                href="/bets"
+                className="bg-gold/10 border border-gold/30 text-gold font-bebas tracking-widest text-sm px-3 py-1.5 rounded-xl hover:bg-gold/20 transition-all"
+              >
+                GISSA →
+              </Link>
+            )}
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br shadow-inner ${avatar?.gradient ?? "from-pitch to-pitch-light"}`}
+            >
               {avatar?.emoji ?? "⚽"}
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 pb-16">
+      <div className="relative max-w-2xl mx-auto px-4 py-5 space-y-5 pb-28">
 
-        {/* Hero */}
-        <div className="rounded-2xl border border-gold/20 bg-gradient-to-br from-pitch-dark/80 to-pitch/60 p-6">
+        {/* ── Hero card ────────────────────────────────────────────────────── */}
+        <div className="rounded-3xl border border-gold/15 bg-gradient-to-br from-pitch-dark/90 via-pitch/70 to-pitch-dark/80 p-5 shadow-xl shadow-black/30">
           <div className="flex items-center gap-4">
-            <AvatarCard avatarKey={profile.avatar_key} size="lg" />
+            <div className="relative">
+              <AvatarCard avatarKey={profile.avatar_key} size="lg" />
+              {streak >= 3 && (
+                <span className="absolute -top-1 -right-1 text-base">🔥</span>
+              )}
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-green-400 text-xs uppercase tracking-widest mb-1">Välkommen tillbaka</p>
+              <p className="text-green-600 text-[10px] uppercase tracking-widest mb-0.5">Välkommen tillbaka</p>
               <h1 className="font-bebas text-4xl text-gold tracking-widest leading-none truncate">
                 {profile.username.toUpperCase()}
               </h1>
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="text-white font-bold text-lg">{profile.points_total} p</span>
+                <span className="text-white font-bold text-xl tabular-nums">
+                  {profile.points_total.toLocaleString("sv-SE")} p
+                </span>
                 <RankBadge rank={myRank} />
                 {streak > 0 && (
-                  <span className="text-xs text-orange-400 font-semibold">🔥 {streak} i rad</span>
+                  <span className="text-xs bg-orange-900/40 border border-orange-600/30 text-orange-400 font-semibold px-2 py-0.5 rounded-full">
+                    🔥 {streak} rätta i rad
+                  </span>
                 )}
                 {weeklyPts > 0 && (
-                  <span className="text-xs text-green-400">+{weeklyPts}p denna vecka</span>
+                  <span className="text-xs text-green-400 font-semibold">
+                    +{weeklyPts.toLocaleString("sv-SE")}p/v
+                  </span>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Potential score — MAXPOÄNG */}
+        {/* ── Countdown / status banner ─────────────────────────────────── */}
+        {!bettingOpen ? (
+          /* Pre June 1 — big countdown */
+          <div className="rounded-3xl border border-gold/20 bg-gradient-to-br from-pitch-dark/90 to-pitch/60 p-6 text-center space-y-4 shadow-xl">
+            <div>
+              <p className="font-bebas text-xl text-green-400 tracking-widest">GISSNINGARNA ÖPPNAR</p>
+              <p className="font-bebas text-4xl text-gold tracking-widest">1 JUNI 2026</p>
+            </div>
+            <BigCountdown target={BETTING_OPENS.toISOString()} />
+            <p className="text-green-600 text-xs">
+              10 dagar på dig att lägga alla gissningar · passa på att planera din strategi!
+            </p>
+          </div>
+        ) : !isLocked ? (
+          /* June 1–11 — tournament countdown + CTA */
+          <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-900/20 to-amber-800/10 px-5 py-4 flex items-center justify-between gap-4 shadow-lg">
+            <div>
+              <p className="text-amber-300 text-[10px] font-bold uppercase tracking-widest">Turneringen låser om</p>
+              <div className="mt-1">
+                <BigCountdown target={TOURNAMENT_LOCK.toISOString()} />
+              </div>
+            </div>
+            <Link
+              href="/bets"
+              className="shrink-0 bg-gold hover:bg-yellow-400 text-pitch-dark font-bebas text-lg tracking-widest px-5 py-2.5 rounded-xl transition-all active:scale-95"
+            >
+              GISSA NU
+            </Link>
+          </div>
+        ) : (
+          /* Tournament live */
+          <div className="rounded-2xl border border-green-500/25 bg-gradient-to-br from-green-900/20 to-green-800/10 px-5 py-4 text-center shadow-lg">
+            <p className="text-green-400 font-bebas text-2xl tracking-widest">🏟️ VM 2026 ÄR LIVE!</p>
+            <p className="text-green-600 text-xs mt-1">Matcherna pågår — följ poängen nedan</p>
+          </div>
+        )}
+
+        {/* ── MAXPOÄNG card ─────────────────────────────────────────────── */}
         {maxPossible > 0 && (
-          <div className="rounded-2xl border border-pitch-light/30 bg-pitch/40 p-5 space-y-3">
-            <h2 className="font-bebas text-xl text-gold tracking-widest">
-              MAXPOÄNG (vad du kan nå)
+          <div className="rounded-2xl border border-pitch-light/20 bg-pitch/40 p-5 space-y-3">
+            <h2 className="font-bebas text-xl text-gold tracking-widest flex items-center gap-2">
+              MAXPOÄNG <span className="text-green-700 text-xs font-sans font-normal normal-case">vad du kan nå</span>
             </h2>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              <span className="text-green-400">Intjänade:</span>
-              <span className="text-white font-bold text-right">
-                {awarded.toLocaleString("sv-SE")} p
-              </span>
-              <span className="text-amber-300">Väntande:</span>
-              <span className="text-white font-bold text-right">
-                +{pending.toLocaleString("sv-SE")} p
-              </span>
-              <span className="text-blue-300">Möjliga:</span>
-              <span className="text-white font-bold text-right">
-                +{open.toLocaleString("sv-SE")} p
-              </span>
-              <span className="text-gold font-semibold border-t border-pitch-light/20 pt-1">
-                Max totalt:
-              </span>
-              <span className="text-gold font-bebas text-xl text-right border-t border-pitch-light/20 pt-1">
+              <span className="text-green-400">✅ Intjänade:</span>
+              <span className="text-white font-bold text-right">{awarded.toLocaleString("sv-SE")} p</span>
+              <span className="text-amber-300">⏳ Väntande:</span>
+              <span className="text-white font-bold text-right">+{pending.toLocaleString("sv-SE")} p</span>
+              <span className="text-blue-300">🔮 Möjliga:</span>
+              <span className="text-white font-bold text-right">+{open.toLocaleString("sv-SE")} p</span>
+              <span className="text-gold font-semibold border-t border-pitch-light/20 pt-1.5">MAX:</span>
+              <span className="text-gold font-bebas text-2xl text-right border-t border-pitch-light/20 pt-0.5">
                 {maxPossible.toLocaleString("sv-SE")} p
               </span>
             </div>
-
-            {/* Stacked bar */}
-            {maxPossible > 0 && (
-              <div className="w-full h-3 rounded-full overflow-hidden bg-pitch-dark flex">
-                <div
-                  className="bg-green-500 h-full transition-all"
-                  style={{ width: `${Math.min(100, (awarded / maxPossible) * 100)}%` }}
-                />
-                <div
-                  className="bg-amber-400 h-full transition-all"
-                  style={{ width: `${Math.min(100, (pending / maxPossible) * 100)}%` }}
-                />
-                <div
-                  className="bg-blue-500 h-full transition-all"
-                  style={{ width: `${Math.min(100, (open / maxPossible) * 100)}%` }}
-                />
-              </div>
-            )}
-
-            <div className="flex gap-3 text-[10px] text-green-600">
+            <div className="w-full h-2.5 rounded-full overflow-hidden bg-pitch-dark flex">
+              <div className="bg-green-500 h-full" style={{ width: `${(awarded / maxPossible) * 100}%` }} />
+              <div className="bg-amber-400 h-full" style={{ width: `${(pending / maxPossible) * 100}%` }} />
+              <div className="bg-blue-500 h-full" style={{ width: `${(open / maxPossible) * 100}%` }} />
+            </div>
+            <div className="flex gap-3 text-[10px] text-green-700">
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Intjänade</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Väntande</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Möjliga</span>
@@ -303,101 +274,112 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Tournament countdown / live status */}
-        {!isLocked ? (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-900/10 px-4 py-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-amber-300 text-xs font-semibold uppercase tracking-widest">VM startar om</p>
-              <div className="mt-0.5">
-                <CountdownTimer locksAt={TOURNAMENT_LOCK} />
-              </div>
-            </div>
-            <Link
-              href="/bets"
-              className="shrink-0 bg-gold hover:bg-yellow-400 text-pitch-dark font-bebas text-base tracking-widest px-4 py-2 rounded-xl transition-all active:scale-95"
-            >
-              LÄGG GISSNINGAR
-            </Link>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-green-500/30 bg-green-900/10 px-4 py-3 text-center">
-            <p className="text-green-400 font-bebas text-xl tracking-widest">🏟️ TURNERINGEN ÄR IGÅNG!</p>
-            <p className="text-green-600 text-xs mt-0.5">VM 2026 är live — följ matcher och poäng nedan</p>
-          </div>
-        )}
-
-        {/* Bet category cards */}
+        {/* ── Bet category cards ────────────────────────────────────────── */}
         <div>
           <h2 className="font-bebas text-2xl text-gold tracking-widest mb-3">MINA GISSNINGAR</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {betCategories.map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
-                className={`rounded-xl border p-4 text-center hover:scale-[1.02] transition-all duration-150 ${cat.color}`}
+                className={`rounded-2xl border p-4 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-150 active:scale-95 ${cat.color}`}
               >
-                <div className="text-2xl mb-1">{cat.emoji}</div>
-                <p className="text-white font-bold text-xs mb-2">{cat.label}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cat.badge}`}>
+                <div className="text-3xl mb-1.5">{cat.emoji}</div>
+                <p className="text-white font-bold text-xs mb-2 leading-tight">{cat.label}</p>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${cat.badge}`}>
                   {cat.total ? `${cat.done}/${cat.total}` : `${cat.done} st`}
                 </span>
-                {cat.total !== null && cat.done < cat.total && !isLocked && (
-                  <p className="text-amber-400 text-[10px] mt-1">{cat.total - cat.done} kvar ⚡</p>
+                {cat.total !== null && cat.done < cat.total && bettingOpen && !isLocked && (
+                  <p className="text-amber-400 text-[10px] mt-1.5 font-semibold">{cat.total - cat.done} kvar ⚡</p>
                 )}
                 {cat.total !== null && cat.done === cat.total && (
-                  <p className="text-green-400 text-[10px] mt-1">Klart ✓</p>
+                  <p className="text-green-400 text-[10px] mt-1.5">✓ Klart!</p>
                 )}
               </Link>
             ))}
           </div>
         </div>
 
-        {/* Leaderboard */}
+        {/* ── Recent results ────────────────────────────────────────────── */}
+        {(recentMatches ?? []).length > 0 && (
+          <div>
+            <h2 className="font-bebas text-2xl text-gold tracking-widest mb-3">SENASTE RESULTAT</h2>
+            <div className="space-y-2">
+              {(recentMatches ?? []).map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-3 rounded-xl border border-pitch-light/20 bg-pitch/30 px-4 py-3"
+                >
+                  <div className="flex-1 min-w-0 text-right">
+                    <p className="text-white font-semibold text-sm truncate">{m.home_team}</p>
+                  </div>
+                  <div className="shrink-0 text-center px-3">
+                    <p className="font-bebas text-xl text-gold tracking-widest">
+                      {m.home_score} – {m.away_score}
+                    </p>
+                    <p className="text-green-700 text-[10px]">
+                      {m.group_name ? `Grupp ${m.group_name}` : m.stage}
+                    </p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm truncate">{m.away_team}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Upcoming matches ──────────────────────────────────────────── */}
+        {(upcomingMatches ?? []).length > 0 && (
+          <div>
+            <h2 className="font-bebas text-2xl text-gold tracking-widest mb-3">KOMMANDE MATCHER</h2>
+            <div className="space-y-2">
+              {(upcomingMatches ?? []).map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/bets/match/${m.id}`}
+                  className="flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-900/10 px-4 py-3 hover:border-violet-500/40 transition-all group"
+                >
+                  <div className="flex-1 min-w-0 text-right">
+                    <p className="text-white font-semibold text-sm truncate">{m.home_team}</p>
+                  </div>
+                  <div className="shrink-0 text-center px-3">
+                    <p className="text-green-700 font-bold text-xs">vs</p>
+                    <p className="text-violet-400 text-[10px] mt-0.5">{formatKickoff(m.kickoff_at)}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm truncate">{m.away_team}</p>
+                  </div>
+                  <span className="shrink-0 text-violet-500 group-hover:text-violet-300 transition-colors">→</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Leaderboard (tabbed) ──────────────────────────────────────── */}
         <div>
           <h2 className="font-bebas text-2xl text-gold tracking-widest mb-3">LIGATABELLEN</h2>
-          <div className="rounded-2xl border border-pitch-light/30 bg-pitch/40 overflow-hidden">
-            {!leaderboard?.length ? (
-              <div className="px-4 py-10 text-center space-y-2">
-                <p className="text-4xl">⏳</p>
-                <p className="text-white font-bold text-sm">Ligatabellen är tom</p>
-                <p className="text-green-600 text-xs">Poäng räknas ut efter avslutade matcher — vi ses den 11 juni!</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-pitch-light/10">
-                {leaderboard.map((entry, i) => (
-                  <LeaderboardRow
-                    key={entry.user_id}
-                    entry={entry}
-                    isCurrentUser={entry.user_id === user.id}
-                    index={i}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Show user's position if outside top 10 */}
-            {myRank && myRank > 10 && (
-              <div className="border-t-2 border-dashed border-pitch-light/20 px-4 py-3 bg-gold/5">
-                <div className="flex items-center gap-3">
-                  <span className="text-green-600 font-bold text-sm w-8 text-center">#{myRank}</span>
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br ${avatar?.gradient ?? ""}`}>
-                    {avatar?.emoji}
-                  </div>
-                  <span className="text-gold text-sm font-semibold flex-1">{profile.username} (du)</span>
-                  <span className="text-white font-bold text-sm">{profile.points_total} p</span>
-                </div>
-              </div>
-            )}
-          </div>
+          <LeaderboardTabs
+            entries={leaderboard ?? []}
+            currentUserId={user.id}
+            currentUserRank={myRank}
+            currentUsername={profile.username}
+            currentAvatarKey={profile.avatar_key}
+            currentUserPoints={profile.points_total}
+          />
         </div>
 
-        {/* Trash talk */}
+        {/* ── Trash talk ────────────────────────────────────────────────── */}
         <TrashTalkWall
           initialMessages={messages ?? []}
           currentUserId={user.id}
         />
 
       </div>
+
+      <BottomNav />
     </div>
   );
 }
