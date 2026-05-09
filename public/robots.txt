@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /dashboard
+Disallow: /bets
+Disallow: /onboarding
+Allow: /
+
+Sitemap: https://vm-soccer-sucker-26.vercel.app/sitemap.xml
