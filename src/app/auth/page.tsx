@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { deriveEmail, validateUsername } from "@/lib/utils";
+import { signUpUser } from "./actions";
 
 type Mode = "signup" | "signin";
 
@@ -48,21 +49,21 @@ export default function AuthPage() {
     const email = deriveEmail(username);
 
     if (mode === "signup") {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { username: username.trim() } },
-      });
+      // Server action creates the user via admin API (no email/SMTP needed)
+      const result = await signUpUser(username, password);
+      if (result.error) {
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
 
-      if (signUpError) {
-        if (
-          signUpError.message.toLowerCase().includes("already registered") ||
-          signUpError.message.toLowerCase().includes("already exists")
-        ) {
-          setError("Det spelarnamnet är redan taget. Välj ett annat!");
-        } else {
-          setError("Något gick fel vid registrering. Försök igen.");
-        }
+      // Sign in immediately with the derived email
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: result.email!,
+        password,
+      });
+      if (signInError) {
+        setError("Konto skapades men inloggning misslyckades. Prova fliken 'Logga in'.");
         setLoading(false);
         return;
       }
