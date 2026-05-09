@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { BetCategory, SuggestionTier } from "@/types/database";
+import type { BetCategory, PowerupType, SuggestionTier } from "@/types/database";
 
 interface SaveBetInput {
   betType: string;
@@ -11,6 +11,8 @@ interface SaveBetInput {
   pointsWager: number;
   lockTime: Date;
   suggestionTier?: SuggestionTier;
+  powerUpUsed?: PowerupType | null;
+  shieldUsed?: PowerupType | null;
 }
 
 interface ActionResult {
@@ -55,6 +57,8 @@ export async function saveBet(input: SaveBetInput): Promise<ActionResult> {
       .update({
         bet_value: input.betValue as never,
         suggestion_tier: (input.suggestionTier ?? null) as never,
+        power_up_used: (input.powerUpUsed ?? null) as never,
+        shield_used: (input.shieldUsed ?? null) as never,
       })
       .eq("id", existing.id);
 
@@ -68,9 +72,33 @@ export async function saveBet(input: SaveBetInput): Promise<ActionResult> {
       bet_value: input.betValue as never,
       points_wager: input.pointsWager,
       suggestion_tier: input.suggestionTier ?? null,
+      power_up_used: input.powerUpUsed ?? null,
+      shield_used: input.shieldUsed ?? null,
     });
 
     if (error) return { error: "Kunde inte spara gissningen. Försök igen." };
+  }
+
+  // Decrement used power-ups from user_powerups inventory
+  const powerUpsToDecrement: PowerupType[] = [];
+  if (input.powerUpUsed) powerUpsToDecrement.push(input.powerUpUsed);
+  if (input.shieldUsed) powerUpsToDecrement.push(input.shieldUsed);
+
+  for (const puType of powerUpsToDecrement) {
+    const { data: existing_pu } = await supabase
+      .from("user_powerups")
+      .select("quantity")
+      .eq("user_id", user.id)
+      .eq("powerup_type", puType)
+      .maybeSingle();
+
+    if (existing_pu && existing_pu.quantity > 0) {
+      await supabase
+        .from("user_powerups")
+        .update({ quantity: existing_pu.quantity - 1 })
+        .eq("user_id", user.id)
+        .eq("powerup_type", puType);
+    }
   }
 
   return { success: true };

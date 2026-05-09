@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatar } from "@/lib/avatars";
-import { TOURNAMENT_LOCK, TURNERING_BETS, KAOS_BETS } from "@/lib/bets";
+import { TOURNAMENT_LOCK, TURNERING_BETS, KAOS_BETS, MATCH_BET_TYPES } from "@/lib/bets";
 import AvatarCard from "@/components/AvatarCard";
 import CountdownTimer from "@/components/CountdownTimer";
 import TrashTalkWall from "./TrashTalkWall";
@@ -86,6 +86,9 @@ export default async function DashboardPage() {
     { data: myRankData },
     { data: bets },
     { data: messages },
+    { data: awardedBets },
+    { data: pendingBets },
+    { count: scheduledMatchCount },
   ] = await Promise.all([
     supabase
       .from("leaderboard_cache")
@@ -106,6 +109,24 @@ export default async function DashboardPage() {
       .select("*")
       .order("created_at", { ascending: true })
       .limit(40),
+    // Points already awarded
+    supabase
+      .from("bets")
+      .select("points_awarded")
+      .eq("user_id", user.id)
+      .not("points_awarded", "is", null),
+    // Pending bets (locked, not yet evaluated)
+    supabase
+      .from("bets")
+      .select("points_wager")
+      .eq("user_id", user.id)
+      .not("locked_at", "is", null)
+      .is("is_correct", null),
+    // Count of remaining scheduled matches
+    supabase
+      .from("matches")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "scheduled"),
   ]);
 
   const betCounts = {
@@ -113,6 +134,41 @@ export default async function DashboardPage() {
     kaos:      bets?.filter((b) => b.bet_category === "kaos").length ?? 0,
     match:     bets?.filter((b) => b.bet_category === "match").length ?? 0,
   };
+
+  // Potential score calculation
+  const awarded = (awardedBets ?? []).reduce(
+    (sum, b) => sum + ((b.points_awarded as number | null) ?? 0),
+    0,
+  );
+  const pending = (pendingBets ?? []).reduce(
+    (sum, b) => sum + ((b.points_wager as number | null) ?? 0),
+    0,
+  );
+
+  // Max unplaced turnering/kaos points (bets not yet placed)
+  const turneringMax = TURNERING_BETS.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
+  const kaosMax = KAOS_BETS.reduce((s, b) => s + b.points, 0);
+  const matchMax = MATCH_BET_TYPES.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
+
+  const placedTurnering = betCounts.turnering;
+  const placedKaos = betCounts.kaos;
+
+  // Unplaced tournament/kaos points (very rough — we don't know which specific
+  // bets are unplaced, so use the proportion of unplaced bets × average max)
+  const turneringUnplaced =
+    placedTurnering < TURNERING_BETS.length
+      ? ((TURNERING_BETS.length - placedTurnering) / TURNERING_BETS.length) * turneringMax
+      : 0;
+  const kaosUnplaced =
+    placedKaos < KAOS_BETS.length
+      ? ((KAOS_BETS.length - placedKaos) / KAOS_BETS.length) * kaosMax
+      : 0;
+
+  const remainingMatches = scheduledMatchCount ?? 0;
+  const open = Math.round(
+    turneringUnplaced + kaosUnplaced + remainingMatches * matchMax,
+  );
+  const maxPossible = awarded + pending + open;
 
   const avatar = getAvatar(profile.avatar_key);
   const isLocked = new Date() >= TOURNAMENT_LOCK;
@@ -193,6 +249,59 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Potential score — MAXPOÄNG */}
+        {maxPossible > 0 && (
+          <div className="rounded-2xl border border-pitch-light/30 bg-pitch/40 p-5 space-y-3">
+            <h2 className="font-bebas text-xl text-gold tracking-widest">
+              MAXPOÄNG (vad du kan nå)
+            </h2>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              <span className="text-green-400">Intjänade:</span>
+              <span className="text-white font-bold text-right">
+                {awarded.toLocaleString("sv-SE")} p
+              </span>
+              <span className="text-amber-300">Väntande:</span>
+              <span className="text-white font-bold text-right">
+                +{pending.toLocaleString("sv-SE")} p
+              </span>
+              <span className="text-blue-300">Möjliga:</span>
+              <span className="text-white font-bold text-right">
+                +{open.toLocaleString("sv-SE")} p
+              </span>
+              <span className="text-gold font-semibold border-t border-pitch-light/20 pt-1">
+                Max totalt:
+              </span>
+              <span className="text-gold font-bebas text-xl text-right border-t border-pitch-light/20 pt-1">
+                {maxPossible.toLocaleString("sv-SE")} p
+              </span>
+            </div>
+
+            {/* Stacked bar */}
+            {maxPossible > 0 && (
+              <div className="w-full h-3 rounded-full overflow-hidden bg-pitch-dark flex">
+                <div
+                  className="bg-green-500 h-full transition-all"
+                  style={{ width: `${Math.min(100, (awarded / maxPossible) * 100)}%` }}
+                />
+                <div
+                  className="bg-amber-400 h-full transition-all"
+                  style={{ width: `${Math.min(100, (pending / maxPossible) * 100)}%` }}
+                />
+                <div
+                  className="bg-blue-500 h-full transition-all"
+                  style={{ width: `${Math.min(100, (open / maxPossible) * 100)}%` }}
+                />
+              </div>
+            )}
+
+            <div className="flex gap-3 text-[10px] text-green-600">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Intjänade</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Väntande</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Möjliga</span>
+            </div>
+          </div>
+        )}
 
         {/* Tournament countdown / live status */}
         {!isLocked ? (

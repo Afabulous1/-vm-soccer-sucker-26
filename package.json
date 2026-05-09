@@ -10,7 +10,8 @@
     "sync:matches": "tsx scripts/sync-matches.ts",
     "sync:results": "tsx scripts/sync-results.ts",
     "sync:players": "tsx scripts/sync-players.ts",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "score:bets": "tsx scripts/score-bets.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

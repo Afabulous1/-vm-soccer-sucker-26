@@ -56,3 +56,7 @@ jobs:
       - name: Sync results
         if: steps.window.outputs.skip == 'false'
         run: npm run sync:results
+
+      - name: Score bets
+        if: steps.window.outputs.skip == 'false'
+        run: npm run score:bets

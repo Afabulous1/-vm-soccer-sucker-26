@@ -6,6 +6,8 @@ import { saveBet } from "@/app/bets/actions";
 import { useToast } from "@/components/ToastProvider";
 import PlayerSelect from "@/components/PlayerSelect";
 import ConfettiTrigger from "@/components/ConfettiTrigger";
+import PowerUpSelector from "@/components/PowerUpSelector";
+import type { PowerupType } from "@/types/database";
 
 interface ExistingBet {
   bet_type: string;
@@ -61,6 +63,11 @@ export default function KaosForm({ existingBets, isLocked }: Props) {
   const [isPending, startTransition] = useTransition();
   const [allDone, setAllDone] = useState(false);
 
+  // Power-up state per bet
+  const [powerUps, setPowerUps] = useState<
+    Record<string, { powerUp: PowerupType | null; shield: PowerupType | null }>
+  >({});
+
   // Track which bets have been saved (initialize from existing bets), using ref to avoid lint warning
   const savedBetIds = useRef<Set<string>>(new Set(
     existingBets
@@ -82,6 +89,7 @@ export default function KaosForm({ existingBets, isLocked }: Props) {
   }
 
   function submitBet(betType: string, betValue: Record<string, unknown>, points: number) {
+    const { powerUp, shield } = powerUps[betType] ?? { powerUp: null, shield: null };
     startTransition(async () => {
       const result = await saveBet({
         betType,
@@ -89,6 +97,8 @@ export default function KaosForm({ existingBets, isLocked }: Props) {
         betValue,
         pointsWager: points,
         lockTime: TOURNAMENT_LOCK,
+        powerUpUsed: powerUp,
+        shieldUsed: shield,
       });
       if (result.error) {
         showToast(result.error, "error");
@@ -174,6 +184,19 @@ export default function KaosForm({ existingBets, isLocked }: Props) {
                     accentClass="focus:ring-rose-400/30 focus:border-rose-400/40"
                   />
                 )}
+
+                <PowerUpSelector
+                  betType={bet.id}
+                  currentPowerUp={powerUps[bet.id]?.powerUp ?? null}
+                  currentShield={powerUps[bet.id]?.shield ?? null}
+                  onSelect={(powerUp, shield) =>
+                    setPowerUps((prev) => ({
+                      ...prev,
+                      [bet.id]: { powerUp, shield },
+                    }))
+                  }
+                  disabled={isPending}
+                />
 
                 <button
                   onClick={() => submitBet(bet.id, val, bet.points)}
