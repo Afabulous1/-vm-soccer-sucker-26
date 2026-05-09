@@ -8,8 +8,6 @@ import { useToast } from "@/components/ToastProvider";
 import StodSupportern from "@/components/StodSupportern";
 import PlayerSelect from "@/components/PlayerSelect";
 import ConfettiTrigger from "@/components/ConfettiTrigger";
-import PowerUpSelector from "@/components/PowerUpSelector";
-import type { PowerupType } from "@/types/database";
 
 interface ExistingBet {
   bet_type: string;
@@ -69,11 +67,6 @@ export default function TurneringForm({ existingBets, isLocked }: Props) {
   const [activeSos, setActiveSos] = useState<string | null>(null);
   const [allDone, setAllDone] = useState(false);
 
-  // Power-up state per bet
-  const [powerUps, setPowerUps] = useState<
-    Record<string, { powerUp: PowerupType | null; shield: PowerupType | null }>
-  >({});
-
   // Track which bets have been saved (initialize from existing bets), using ref to avoid lint warning
   const savedBetIds = useRef<Set<string>>(new Set(
     existingBets
@@ -108,7 +101,6 @@ export default function TurneringForm({ existingBets, isLocked }: Props) {
   }
 
   function submitBet(betType: string, betValue: Record<string, unknown>, points: number) {
-    const { powerUp, shield } = powerUps[betType] ?? { powerUp: null, shield: null };
     startTransition(async () => {
       const result = await saveBet({
         betType,
@@ -116,8 +108,6 @@ export default function TurneringForm({ existingBets, isLocked }: Props) {
         betValue,
         pointsWager: points,
         lockTime: TOURNAMENT_LOCK,
-        powerUpUsed: powerUp,
-        shieldUsed: shield,
       });
       if (result.error) {
         showToast(result.error, "error");
@@ -217,19 +207,6 @@ export default function TurneringForm({ existingBets, isLocked }: Props) {
                     ))}
                   </div>
                 )}
-
-                <PowerUpSelector
-                  betType={bet.id}
-                  currentPowerUp={powerUps[bet.id]?.powerUp ?? null}
-                  currentShield={powerUps[bet.id]?.shield ?? null}
-                  onSelect={(powerUp, shield) =>
-                    setPowerUps((prev) => ({
-                      ...prev,
-                      [bet.id]: { powerUp, shield },
-                    }))
-                  }
-                  disabled={isPending}
-                />
 
                 <div className="flex gap-2 pt-1">
                   <button
