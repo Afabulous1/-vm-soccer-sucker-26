@@ -1,21 +1,15 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
-
 export type SuggestionTier = "safe" | "devil" | "crazy";
 export type BetCategory = "turnering" | "match" | "kaos";
 export type MatchStatus = "scheduled" | "live" | "finished" | "postponed";
 export type PowerupType =
   | "double_or_nothing"
   | "taktikgeniet"
-  | "sexpoangaren";
-export type ShieldType = "forsakringen" | "tidsmaskinen";
+  | "sexpoangaren"
+  | "forsakringen"
+  | "tidsmaskinen";
 
-export interface Database {
+// Matches Supabase's expected GenericSchema format
+export type Database = {
   public: {
     Tables: {
       profiles: {
@@ -40,12 +34,15 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          id?: string;
+          user_id?: string;
           username?: string;
           avatar_key?: string;
           points_total?: number;
           suggestion_personality?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       matches: {
         Row: {
@@ -75,11 +72,19 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          id?: string;
+          external_id?: number;
+          home_team?: string;
+          away_team?: string;
+          kickoff_at?: string;
           status?: MatchStatus;
           home_score?: number | null;
           away_score?: number | null;
+          stage?: string;
+          group_name?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       bets: {
         Row: {
@@ -88,10 +93,10 @@ export interface Database {
           bet_type: string;
           bet_category: BetCategory;
           match_id: string | null;
-          bet_value: Json;
+          bet_value: unknown;
           points_wager: number;
           power_up_used: PowerupType | null;
-          shield_used: ShieldType | null;
+          shield_used: PowerupType | null;
           suggestion_tier: SuggestionTier | null;
           is_correct: boolean | null;
           points_awarded: number | null;
@@ -104,10 +109,10 @@ export interface Database {
           bet_type: string;
           bet_category: BetCategory;
           match_id?: string | null;
-          bet_value: Json;
+          bet_value: unknown;
           points_wager: number;
           power_up_used?: PowerupType | null;
-          shield_used?: ShieldType | null;
+          shield_used?: PowerupType | null;
           suggestion_tier?: SuggestionTier | null;
           is_correct?: boolean | null;
           points_awarded?: number | null;
@@ -115,10 +120,20 @@ export interface Database {
           created_at?: string;
         };
         Update: {
+          id?: string;
+          bet_value?: unknown;
           is_correct?: boolean | null;
           points_awarded?: number | null;
           locked_at?: string | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "bets_match_id_fkey";
+            columns: ["match_id"];
+            referencedRelation: "matches";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       leaderboard_cache: {
         Row: {
@@ -128,7 +143,7 @@ export interface Database {
           points_total: number;
           weekly_points: number;
           current_streak: number;
-          badges: Json;
+          badges: unknown;
           rank: number;
           updated_at: string;
         };
@@ -139,7 +154,7 @@ export interface Database {
           points_total?: number;
           weekly_points?: number;
           current_streak?: number;
-          badges?: Json;
+          badges?: unknown;
           rank?: number;
           updated_at?: string;
         };
@@ -149,10 +164,11 @@ export interface Database {
           points_total?: number;
           weekly_points?: number;
           current_streak?: number;
-          badges?: Json;
+          badges?: unknown;
           rank?: number;
           updated_at?: string;
         };
+        Relationships: [];
       };
       trash_talk: {
         Row: {
@@ -171,18 +187,19 @@ export interface Database {
           message: string;
           created_at?: string;
         };
-        Update: never;
+        Update: Record<string, never>;
+        Relationships: [];
       };
       user_powerups: {
         Row: {
           user_id: string;
-          powerup_type: PowerupType | ShieldType;
+          powerup_type: PowerupType;
           quantity: number;
           updated_at: string;
         };
         Insert: {
           user_id: string;
-          powerup_type: PowerupType | ShieldType;
+          powerup_type: PowerupType;
           quantity?: number;
           updated_at?: string;
         };
@@ -190,6 +207,7 @@ export interface Database {
           quantity?: number;
           updated_at?: string;
         };
+        Relationships: [];
       };
       suggestion_stats: {
         Row: {
@@ -221,14 +239,34 @@ export interface Database {
           crazy_correct?: number;
           updated_at?: string;
         };
+        Relationships: [];
       };
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Views: { [_ in never]: never };
+    Functions: {
+      initialize_user_powerups: {
+        Args: { p_user_id: string };
+        Returns: undefined;
+      };
+    };
     Enums: {
       suggestion_tier: SuggestionTier;
       bet_category: BetCategory;
       match_status: MatchStatus;
+      powerup_type: PowerupType;
     };
+    CompositeTypes: { [_ in never]: never };
   };
-}
+};
+
+// Convenience row types
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type Match = Database["public"]["Tables"]["matches"]["Row"];
+export type Bet = Database["public"]["Tables"]["bets"]["Row"];
+export type LeaderboardEntry =
+  Database["public"]["Tables"]["leaderboard_cache"]["Row"];
+export type TrashTalk = Database["public"]["Tables"]["trash_talk"]["Row"];
+export type UserPowerup =
+  Database["public"]["Tables"]["user_powerups"]["Row"];
+export type SuggestionStats =
+  Database["public"]["Tables"]["suggestion_stats"]["Row"];
