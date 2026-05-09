@@ -70,11 +70,12 @@ export async function checkUsername(
 ): Promise<{ available: boolean }> {
   if (!username || username.trim().length < 2) return { available: false };
 
-  const supabase = await createClient();
-  const { data } = await supabase
+  // Admin client needed: profiles are not publicly readable after security tightening
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("profiles")
     .select("id")
-    .eq("username", username.trim())
+    .ilike("username", username.trim()) // case-insensitive match
     .single();
 
   return { available: !data };
