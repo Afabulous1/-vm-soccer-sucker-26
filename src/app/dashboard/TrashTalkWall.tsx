@@ -11,6 +11,17 @@ interface Props {
   currentUserId: string;
 }
 
+const PLACEHOLDERS = [
+  "Min gissning är genialisk och alla andras är fel...",
+  "Vem tar guld? Försvara din gissning! 🏆",
+  "Vilken grupp är dödsgruppen? Argumentera!",
+  "Skriv något kontroversiellt om Mbappe...",
+  "Argentina eller Brasilien? Fight me 🥊",
+  "Skyttekungen? Jag har redan vunnit i huvudet...",
+  "Hur fel har du tänkt att ta? Berätta!",
+  "Din gissning är sämst och det vet du! 😂",
+];
+
 function MessageBubble({ msg, isOwn }: { msg: TrashTalk; isOwn: boolean }) {
   const avatar = getAvatar(msg.avatar_key);
   const time = new Date(msg.created_at).toLocaleTimeString("sv-SE", {
@@ -18,20 +29,24 @@ function MessageBubble({ msg, isOwn }: { msg: TrashTalk; isOwn: boolean }) {
   });
 
   return (
-    <div className={`flex gap-3 ${isOwn ? "flex-row-reverse" : ""}`}>
-      <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br ${avatar?.gradient ?? "from-pitch to-pitch-light"}`}>
+    <div className={`flex gap-2.5 ${isOwn ? "flex-row-reverse" : ""}`}>
+      <div
+        className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-lg bg-gradient-to-br ${avatar?.gradient ?? "from-pitch to-pitch-light"}`}
+      >
         {avatar?.emoji ?? "⚽"}
       </div>
-      <div className={`max-w-[75%] space-y-0.5 ${isOwn ? "items-end" : "items-start"} flex flex-col`}>
+      <div className={`max-w-[78%] space-y-0.5 flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
         <div className={`flex items-center gap-2 ${isOwn ? "flex-row-reverse" : ""}`}>
-          <span className="text-xs text-green-500 font-semibold">{msg.username}</span>
-          <span className="text-xs text-green-800">{time}</span>
+          <span className="text-[11px] font-bold text-green-500">{msg.username}</span>
+          <span className="text-[10px] text-green-800">{time}</span>
         </div>
-        <div className={`px-3 py-2 rounded-2xl text-sm text-white leading-snug ${
-          isOwn
-            ? "bg-gold/20 border border-gold/30 rounded-tr-sm"
-            : "bg-pitch-light/60 border border-pitch-light/40 rounded-tl-sm"
-        }`}>
+        <div
+          className={`px-3 py-2 rounded-2xl text-sm text-white leading-snug shadow-sm ${
+            isOwn
+              ? "bg-gradient-to-br from-gold/25 to-yellow-600/15 border border-gold/25 rounded-tr-sm"
+              : "bg-pitch-light/50 border border-pitch-light/30 rounded-tl-sm"
+          }`}
+        >
           {msg.message}
         </div>
       </div>
@@ -40,34 +55,34 @@ function MessageBubble({ msg, isOwn }: { msg: TrashTalk; isOwn: boolean }) {
 }
 
 export default function TrashTalkWall({ initialMessages, currentUserId }: Props) {
-  const [messages, setMessages] = useState<TrashTalk[]>(initialMessages);
-  const [text, setText] = useState("");
+  const [messages, setMessages]   = useState<TrashTalk[]>(initialMessages);
+  const [text, setText]           = useState("");
+  const [phIdx, setPhIdx]         = useState(0);
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  const [error, setError]         = useState<string | null>(null);
+  const bottomRef                 = useRef<HTMLDivElement>(null);
+  const supabase                  = createClient();
 
-  // Supabase Realtime — live incoming messages
+  // Rotate placeholder text every 4 seconds
+  useEffect(() => {
+    const id = setInterval(() => setPhIdx((i) => (i + 1) % PLACEHOLDERS.length), 4_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Supabase Realtime — live messages
   useEffect(() => {
     const channel = supabase
-      .channel("trash_talk_live")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "trash_talk" },
-        (payload) => {
-          setMessages((prev) => {
-            // Avoid duplicates (own messages arrive via server action too)
-            if (prev.some((m) => m.id === (payload.new as TrashTalk).id)) return prev;
-            return [...prev, payload.new as TrashTalk];
-          });
-        }
-      )
+      .channel("spelarbänken_live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "trash_talk" }, (payload) => {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === (payload.new as TrashTalk).id)) return prev;
+          return [...prev, payload.new as TrashTalk];
+        });
+      })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [supabase]);
 
-  // Scroll to bottom when new messages arrive
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -85,41 +100,51 @@ export default function TrashTalkWall({ initialMessages, currentUserId }: Props)
   }
 
   return (
-    <div className="rounded-2xl border border-pitch-light/30 bg-pitch/40 overflow-hidden">
-      <div className="px-4 py-3 border-b border-pitch-light/20 flex items-center gap-2">
-        <span className="text-lg">💬</span>
-        <h2 className="font-bebas text-xl text-gold tracking-widest">TRASH TALK</h2>
-        <span className="text-green-600 text-xs ml-auto">{messages.length} meddelanden</span>
+    <div className="rounded-2xl border border-pitch-light/20 bg-pitch/40 overflow-hidden shadow-inner">
+      {/* Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-pitch-dark/80 to-pitch/60 border-b border-pitch-light/20 flex items-center gap-2">
+        <span className="text-xl">🏟️</span>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bebas text-xl text-gold tracking-widest leading-none">SPELARBÄNKEN</h2>
+          <p className="text-green-700 text-[10px] font-semibold">Provokationer, skryt och gissningar välkomnas</p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-green-500 text-[10px] font-semibold">{messages.length} inlägg</span>
+        </div>
       </div>
 
       {/* Message list */}
       <div className="h-72 overflow-y-auto px-4 py-4 space-y-4 scroll-smooth">
-        {messages.length === 0 && (
-          <p className="text-center text-green-700 text-sm py-8">
-            Inga meddelanden ännu — var först med lite banter! 🔥
-          </p>
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-2 py-4">
+            <span className="text-4xl">🦗</span>
+            <p className="text-green-600 text-sm font-semibold">Tystare än ett tomt Råsunda...</p>
+            <p className="text-green-700 text-xs">Var den första att starta buset!</p>
+          </div>
+        ) : (
+          messages.map((msg) => (
+            <MessageBubble key={msg.id} msg={msg} isOwn={msg.user_id === currentUserId} />
+          ))
         )}
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} isOwn={msg.user_id === currentUserId} />
-        ))}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="px-4 py-3 border-t border-pitch-light/20 flex gap-2">
+      <form onSubmit={handleSubmit} className="px-3 py-3 border-t border-pitch-light/20 flex gap-2">
         <input
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); setError(null); }}
           maxLength={280}
-          placeholder="Säg något provokativt..."
-          className="flex-1 bg-pitch-dark border border-pitch-light/40 rounded-xl px-3 py-2 text-sm text-white placeholder-green-700 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/40"
+          placeholder={PLACEHOLDERS[phIdx]}
+          className="flex-1 bg-pitch-dark border border-pitch-light/30 rounded-xl px-3 py-2.5 text-sm text-white placeholder-green-800 focus:outline-none focus:ring-2 focus:ring-gold/25 focus:border-gold/35 transition-all"
         />
         <button
           type="submit"
           disabled={isPending || !text.trim()}
-          className="bg-gold hover:bg-yellow-400 disabled:opacity-40 text-pitch-dark font-bebas text-lg tracking-widest px-4 rounded-xl transition-all active:scale-95"
+          className="shrink-0 bg-gold hover:bg-yellow-400 disabled:opacity-40 disabled:cursor-not-allowed text-pitch-dark font-bebas text-base tracking-widest px-4 rounded-xl transition-all active:scale-95"
         >
-          SKICKA
+          AVFYRA 🚀
         </button>
       </form>
       {error && <p className="px-4 pb-3 text-red-400 text-xs">{error}</p>}
