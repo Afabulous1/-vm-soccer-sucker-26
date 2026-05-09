@@ -257,7 +257,7 @@ export default function AuthPage() {
                 för ett hemmagjort.
               </p>
               <p>
-                När du skapar ett konto ser du möjligtvis "Supabase" i webbläsaren
+                När du skapar ett konto ser du möjligtvis &ldquo;Supabase&rdquo; i webbläsaren
                 eller i en bekräftelsemejl. Det är helt normalt och en del av
                 hur den här appen håller ditt konto säkert.
               </p>

@@ -88,7 +88,7 @@ export default function OnboardingForm({ username }: Props) {
           <div className={`rounded-xl p-4 bg-gradient-to-r ${av.gradient} text-center animate-bounce_in`}>
             <div className="text-4xl mb-1">{av.emoji}</div>
             <p className="text-white font-semibold text-sm">{av.name}</p>
-            <p className="text-white/80 text-xs italic mt-1">"{av.tagline}"</p>
+            <p className="text-white/80 text-xs italic mt-1">&ldquo;{av.tagline}&rdquo;</p>
           </div>
         ) : null;
       })()}
