@@ -2,29 +2,31 @@
 
 // Two music modes:
 // 1. CROWD  — Web Audio API crowd atmosphere (white noise → bandpass → LFO swell). Always available.
-// 2. MUSIC  — YouTube playlist iframe (set NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID in .env.local).
+// 2. MUSIC  — YouTube playlist iframe (set NEXT_PUBLIC_YOUTUBE_YT_ID in .env.local).
 //
 // Click cycles: OFF → CROWD → MUSIC (if playlist set) → OFF
 
 import { useRef, useState, useCallback, useEffect } from "react";
 
-const PLAYLIST_ID = process.env.NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID;
+// Accepts either a single video ID (e.g. dQw4w9WgXcQ — 11 chars)
+// or a playlist ID (e.g. PL7KLwyJCC7QwT8BNvKF7mokkODa6aNfAH — starts with PL)
+const YT_ID = process.env.NEXT_PUBLIC_YOUTUBE_YT_ID ?? "";
 
 type Mode = "off" | "crowd" | "music";
 
-function buildYouTubeUrl(playlistId: string) {
-  const params = new URLSearchParams({
-    autoplay:   "1",
-    loop:       "1",
-    playlist:   playlistId,
-    controls:   "0",
-    showinfo:   "0",
-    rel:        "0",
-    modestbranding: "1",
-    enablejsapi: "0",
-    fs:         "0",
-  });
-  return `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&${params.toString()}`;
+function buildYouTubeUrl(id: string) {
+  const base   = "https://www.youtube-nocookie.com/embed";
+  const common = "autoplay=1&loop=1&controls=0&rel=0&modestbranding=1";
+
+  // Playlist IDs start with PL (or FL/RD/UU) and are >11 chars
+  const isPlaylist = id.length > 11 || /^(PL|FL|RD|UU|LL|WL)/i.test(id);
+
+  if (isPlaylist) {
+    return `${base}/videoseries?list=${id}&${common}`;
+  } else {
+    // Single video — playlist param is required for loop=1 to work
+    return `${base}/${id}?${common}&playlist=${id}`;
+  }
 }
 
 export default function MusicPlayer() {
@@ -74,9 +76,9 @@ export default function MusicPlayer() {
 
   // ── YouTube iframe ──────────────────────────────────────────────────────
   function mountYouTube() {
-    if (!PLAYLIST_ID || iframeRef.current) return;
+    if (!YT_ID || iframeRef.current) return;
     const iframe    = document.createElement("iframe");
-    iframe.src      = buildYouTubeUrl(PLAYLIST_ID);
+    iframe.src      = buildYouTubeUrl(YT_ID);
     iframe.allow    = "autoplay";
     iframe.style.cssText = "position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none";
     document.body.appendChild(iframe);
@@ -106,7 +108,7 @@ export default function MusicPlayer() {
     }
 
     if (mode === "crowd") {
-      if (PLAYLIST_ID) {
+      if (YT_ID) {
         // Switch to YouTube music, mute crowd
         gain?.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.4);
         mountYouTube();
@@ -134,7 +136,7 @@ export default function MusicPlayer() {
   const title =
     mode === "crowd" ? "Stadionatmosfär på · klicka för YouTube-musik" :
     mode === "music" ? "YouTube-musik på · klicka för att stänga av" :
-    PLAYLIST_ID
+    YT_ID
       ? "Klicka för stadionatmosfär (sedan YouTube-musik)"
       : "Klicka för stadionatmosfär";
 
