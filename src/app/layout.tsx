@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Bebas_Neue } from "next/font/google";
 import { ToastProvider } from "@/components/ToastProvider";
+import MusicPlayer from "@/components/MusicPlayer";
 import "./globals.css";
 
 const inter = Inter({
@@ -29,7 +30,10 @@ export default function RootLayout({
   return (
     <html lang="sv">
       <body className={`${inter.variable} ${bebasNeue.variable} antialiased`}>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          {children}
+          <MusicPlayer />
+        </ToastProvider>
       </body>
     </html>
   );

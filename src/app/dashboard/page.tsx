@@ -6,7 +6,6 @@ import { BETTING_OPENS, TOURNAMENT_LOCK, TURNERING_BETS, KAOS_BETS, MATCH_BET_TY
 import AvatarCard from "@/components/AvatarCard";
 import BigCountdown from "@/components/BigCountdown";
 import BottomNav from "@/components/BottomNav";
-import MusicPlayer from "@/components/MusicPlayer";
 import FeatureGuide from "@/components/FeatureGuide";
 import LoginWelcome from "@/components/LoginWelcome";
 import LeaderboardTabs from "./LeaderboardTabs";
@@ -144,7 +143,6 @@ export default async function DashboardPage() {
       {/* Client-only interactive components */}
       <FeatureGuide />
       <LoginWelcome username={profile.username} />
-      <MusicPlayer />
 
       {/* Top nav */}
       <nav className="relative sticky top-0 z-40 bg-pitch-dark/95 backdrop-blur border-b border-pitch-light/20">

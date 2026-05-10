@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { BETTING_OPENS, TOURNAMENT_LOCK } from "@/lib/bets";
 import BigCountdown from "@/components/BigCountdown";
 import BottomNav from "@/components/BottomNav";
-import MusicPlayer from "@/components/MusicPlayer";
 
 const LockBanner = dynamic(() => import("@/components/LockBanner"), { ssr: false });
 
@@ -59,7 +58,6 @@ export default async function BetsLayout({ children }: { children: React.ReactNo
         </div>
 
         <BottomNav />
-        <MusicPlayer />
       </div>
     );
   }
@@ -120,7 +118,6 @@ export default async function BetsLayout({ children }: { children: React.ReactNo
       </div>
 
       <BottomNav />
-      <MusicPlayer />
     </div>
   );
 }
