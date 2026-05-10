@@ -18,7 +18,7 @@ Friends compete by predicting WC 2026 match results, tournament outcomes, and ch
 | **Live data** | Auto-synced from football-data.org twice daily via GitHub Actions (June 10 – July 19). |
 | **Dashboard** | Real-time leaderboard (Total / Week / Streak tabs), recent results, upcoming matches. |
 | **Spelarbänken** | Live group chat wall (Supabase Realtime, updates without page reload). |
-| **Music** | Stadium crowd atmosphere (Web Audio API) + optional YouTube playlist. |
+| **Music** | Optional YouTube video/playlist — starts on first page interaction. |
 | **Onboarding** | 7-step feature guide for first-time users. |
 | **Countdowns** | Big flip-clock to June 1 opening, tournament lock countdown, per-match kickoff badges. |
 
@@ -32,6 +32,70 @@ Auth / DB   Supabase (auth, Postgres, Realtime, RLS)
 Deploy      Vercel (auto-deploy from main branch)
 Data sync   football-data.org free API → GitHub Actions cron
 ```
+
+---
+
+## How All the Pieces Fit Together
+
+Four services — each with one job:
+
+### Supabase — your database & auth
+- Stores everything: users, bets, match data, chat messages, leaderboard
+- Handles sign-up and login — no email confirmation because the app uses the admin API directly
+- Realtime subscriptions power live chat (Spelarbänken) without page reloads
+- Row Level Security (RLS) ensures users can only read/edit their own bets
+
+### Vercel — hosts the website
+- Builds and serves the Next.js frontend
+- Auto-deploys every time you push to the `main` branch on GitHub
+- Server Actions (sign-up, save bet) run here as serverless functions
+- All your friends reach the app via the Vercel URL (e.g. `vm-soccer-sucker.vercel.app`)
+
+### GitHub Actions — scheduled data sync
+- Runs a cron job at 06:00 and 18:00 UTC, every day from June 10 to July 19
+- Fetches match results from football-data.org → writes scores to Supabase
+- Scores all bets and rebuilds the leaderboard after each sync
+- Set it up once, never touch it again
+
+### football-data.org — match data source
+- Free API with WC 2026 fixtures, live scores, and player stats
+- Only GitHub Actions calls this API — the frontend never touches it directly
+- Free tier: 10 req/min (sync scripts throttle automatically with a 6-second delay)
+
+---
+
+## Operator Checklist — What to Do and When
+
+You are the one person who sets this up and keeps it running. Here is exactly what to do and when.
+
+### Before June 1 — Setup (do this once)
+- [ ] Create Supabase project + run `supabase/migrations/001_initial_schema.sql`
+- [ ] Deploy to Vercel + set the 4 environment variables (see setup guide below)
+- [ ] Add the 3 GitHub Secrets for Actions
+- [ ] Run `npm run sync:matches` once to populate the fixture list
+- [ ] Share the Vercel URL with your friends
+- [ ] (Optional) Add `NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID` in Vercel for background music
+
+### June 1 — Betting opens automatically
+- No action needed — the app unlocks itself at midnight CEST
+- Friends can now place tournament, chaos, and match bets
+
+### Around June 6–7 — Squad confirmations
+- Run `npm run sync:players` to refresh player lists for first-scorer bets (squads are usually confirmed ~5 days before the tournament)
+
+### June 11, 17:00 UTC — Tournament day 1, bets lock automatically
+- No action needed — tournament and chaos bets lock themselves
+- Match bets for individual games remain open until each game's kickoff
+
+### June 10 onward — GitHub Actions takes over
+- Automatic from here — runs at 06:00 and 18:00 UTC through July 19
+- If a score looks wrong: run `npm run sync:results` manually
+- If leaderboard isn't updating: run `npm run score:bets` manually
+
+### July 19 — WC Final
+- After the match finishes, verify scores synced correctly
+- Run `npm run score:bets` one last time if needed
+- Reveal the final leaderboard to your friends 🏆
 
 ---
 
@@ -135,7 +199,7 @@ Add secrets at: GitHub repo → **Settings → Secrets and variables → Actions
 3. Copy the ID after `?list=` (e.g. `PLfoo123bar`)
 4. Add `NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID=PLfoo123bar` in Vercel environment variables → Redeploy
 
-Users cycle through: **Off → Stadium crowd noise (Web Audio) → YouTube music → Off**
+The 🎵 button appears in the bottom-right corner on every page. Music starts automatically on the user's first click anywhere.
 
 ### 8. Invite your friends
 

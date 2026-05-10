@@ -19,20 +19,20 @@ const STEPS = [
   },
   {
     emoji: "🏆",
-    title: "Turneringsgissningar (1 000–5 000p)",
-    body: "Gissa vinnaren, finalisterna, skyttekungen, dödsgruppen och mer. Dessa låser exakt 11 juni kl 17:00 UTC — dag ett av turneringen. Välj klokt!",
+    title: "Turneringsgissningar låser 11 juni",
+    body: "Gissa vinnaren, finalisterna, skyttekungen, dödsgruppen och mer. OBS: dessa låser permanent 11 juni kl 17:00 UTC — det är dag ETT av turneringen. Du kan inte ändra dem efteråt.",
     accent: "text-blue-400",
   },
   {
     emoji: "🔥",
-    title: "Kaosgissningar (10 000p styck!)",
-    body: "De vildaste gissningarna: en målvakt gör mål? Sverige till finalen? Varje rätt kaosgissning ger dig 10 000 poäng. Låser samma dag som turneringen.",
+    title: "Kaosgissningar låser också 11 juni",
+    body: "De vildaste gissningarna: en målvakt gör mål? Sverige till finalen? 10 000p styck om du har rätt. Låser exakt samtidigt som turneringsgissningarna — 11 juni kl 17:00 UTC.",
     accent: "text-rose-400",
   },
   {
     emoji: "⚽",
-    title: "Matchgissningar (5–50p per bet)",
-    body: "Gissa varje match: rätt sida (10p), exakt resultat (50p), första målskytt (30p) och mer. Matchgissningar låser exakt vid avspark — kolla klockan!",
+    title: "Matchgissningar — öppna hela turneringen",
+    body: "Varje match har egna gissningar: rätt sida (10p), exakt resultat (50p), första målskytt (30p) och mer. Dessa låser INTE den 11 juni — de låser individuellt vid varje matchs avspark. Du kan gissa matcher hela vägen till finalen!",
     accent: "text-violet-400",
   },
   {
