@@ -53,7 +53,7 @@ export default function Home() {
             SKAPA KONTO &amp; BÖRJA GISSA 🚀
           </Link>
           <p className="text-green-700 text-xs">
-            Inget e-post · Inget betalning · Bara fotboll
+            Gratis · Ingen prestige · Du förlorar ändå 😏
           </p>
         </div>
 

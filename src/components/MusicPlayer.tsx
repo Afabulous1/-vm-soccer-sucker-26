@@ -39,11 +39,8 @@ export default function MusicPlayer() {
   const [playing, setPlaying] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // Nothing configured — hide the button entirely
-  if (!RAW) return null;
-
   function mount() {
-    if (iframeRef.current) return;
+    if (iframeRef.current || !RAW) return;
     const iframe = document.createElement("iframe");
     iframe.src   = buildEmbedUrl(RAW);
     iframe.allow = "autoplay";
@@ -59,7 +56,16 @@ export default function MusicPlayer() {
     iframeRef.current = null;
   }
 
-  useEffect(() => () => unmount(), []);
+  // Start music on first user interaction (browsers block true autoplay)
+  useEffect(() => {
+    if (!RAW) return;
+    const start = () => { mount(); setPlaying(true); };
+    document.addEventListener("click", start, { once: true });
+    return () => { document.removeEventListener("click", start); unmount(); };
+  }, []);
+
+  // Nothing configured — hide the button entirely
+  if (!RAW) return null;
 
   function toggle() {
     if (playing) {
