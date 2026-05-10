@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { BetCategory, PowerupType, SuggestionTier } from "@/types/database";
+import { getNowServer } from "@/lib/now";
 
 interface SaveBetInput {
   betType: string;
@@ -28,7 +29,7 @@ export async function saveBet(input: SaveBetInput): Promise<ActionResult> {
 
   if (!user) return { error: "Du måste vara inloggad." };
 
-  if (new Date() >= input.lockTime) {
+  if ((await getNowServer()) >= input.lockTime) {
     return { error: "Gissningsperioden är stängd — matchen/turneringen har börjat." };
   }
 
@@ -49,6 +50,41 @@ export async function saveBet(input: SaveBetInput): Promise<ActionResult> {
 
   if (existing?.locked_at) {
     return { error: "Den här gissningen är låst och kan inte ändras." };
+  }
+
+  // Power-up stage enforcement: max 1 use per power-up per stage group
+  // (group_stage = one pool, all knockout rounds = another pool)
+  if ((input.powerUpUsed || input.shieldUsed) && input.matchId) {
+    const { data: currentMatch } = await supabase
+      .from("matches").select("stage").eq("id", input.matchId).single();
+    const isGroup = currentMatch?.stage === "group_stage";
+    const stagePool = isGroup
+      ? ["group_stage"]
+      : ["round_of_16", "quarter_final", "semi_final", "final", "third_place"];
+    const stageName = isGroup ? "gruppspelet" : "slutspelet";
+
+    const { data: stageMatchIds } = await supabase
+      .from("matches").select("id").in("stage", stagePool);
+    const ids = (stageMatchIds ?? []).map((m) => m.id);
+
+    for (const puField of ["power_up_used", "shield_used"] as const) {
+      const puValue = puField === "power_up_used" ? input.powerUpUsed : input.shieldUsed;
+      if (!puValue) continue;
+
+      const { data: prior } = await supabase
+        .from("bets")
+        .select("match_id")
+        .eq("user_id", user.id)
+        .eq(puField, puValue)
+        .in("match_id", ids)
+        .neq("match_id", input.matchId); // exclude bets on the current match (updates)
+
+      if (prior?.length) {
+        return {
+          error: `Du har redan använt den här kraften en gång i ${stageName}. Välj en annan.`,
+        };
+      }
+    }
   }
 
   if (existing) {

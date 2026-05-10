@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { TOURNAMENT_LOCK } from "@/lib/bets";
+import { getSimOffsetMs } from "@/lib/now";
 
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -14,8 +15,9 @@ export default function LockBanner() {
   const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
+    const offset = getSimOffsetMs();
     function tick() {
-      const ms = TOURNAMENT_LOCK.getTime() - Date.now();
+      const ms = TOURNAMENT_LOCK.getTime() - (Date.now() + offset);
       setRemaining(ms);
     }
     tick();

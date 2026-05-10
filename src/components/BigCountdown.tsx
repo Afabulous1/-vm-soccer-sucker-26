@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { getSimOffsetMs } from "@/lib/now";
 
-function getTimeLeft(target: Date) {
-  const total = Math.max(0, target.getTime() - Date.now());
+function getTimeLeft(target: Date, offset: number) {
+  const total = Math.max(0, target.getTime() - (Date.now() + offset));
   const days    = Math.floor(total / (1000 * 60 * 60 * 24));
   const hours   = Math.floor((total / (1000 * 60 * 60)) % 24);
   const minutes = Math.floor((total / (1000 * 60)) % 60);
@@ -26,18 +27,19 @@ function Digit({ value, label }: { value: number; label: string }) {
 }
 
 export default function BigCountdown({ target, onExpired }: { target: string; onExpired?: () => void }) {
-  const date = useMemo(() => new Date(target), [target]);
-  const [time, setTime] = useState(() => getTimeLeft(date));
+  const date   = useMemo(() => new Date(target), [target]);
+  const offset = useMemo(() => getSimOffsetMs(), []);
+  const [time, setTime] = useState(() => getTimeLeft(date, offset));
 
   useEffect(() => {
     if (time.total <= 0) { onExpired?.(); return; }
     const id = setInterval(() => {
-      const next = getTimeLeft(date);
+      const next = getTimeLeft(date, offset);
       setTime(next);
       if (next.total <= 0) { clearInterval(id); onExpired?.(); }
     }, 1000);
     return () => clearInterval(id);
-  }, [date, time.total, onExpired]);
+  }, [date, offset, time.total, onExpired]);
 
   if (time.total <= 0) return null;
 

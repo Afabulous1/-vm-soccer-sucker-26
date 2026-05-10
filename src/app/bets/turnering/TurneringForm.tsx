@@ -13,6 +13,18 @@ interface ExistingBet {
   bet_type: string;
   bet_value: unknown;
   locked_at: string | null;
+  points_awarded: number | null;
+  is_correct: boolean | null;
+}
+
+function StatusPill({ points_awarded, is_correct }: { points_awarded: number | null; is_correct: boolean | null }) {
+  if (points_awarded == null) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-slate-400 bg-slate-500/20 border-slate-500/40">Väntande</span>;
+  }
+  if (is_correct) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-emerald-300 bg-emerald-500/20 border-emerald-500/40">Intjänad +{points_awarded}p ✓</span>;
+  }
+  return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-red-400 bg-red-500/20 border-red-500/40">Fel 😢</span>;
 }
 
 interface Props {
@@ -95,8 +107,19 @@ export default function TurneringForm({ existingBets, isLocked }: Props) {
 
   function handleSosSuggestion(betType: string, value: unknown) {
     const bet = TURNERING_BETS.find((b) => b.id === betType)!;
-    if (bet.inputType === "team") updateValue(betType, "team", value);
-    else if (bet.inputType === "player") updateValue(betType, "player", value);
+    if (bet.inputType === "team") {
+      updateValue(betType, "team", value);
+    } else if (bet.inputType === "two-teams") {
+      const v = value as { team1: string; team2: string };
+      updateValue(betType, "team1", v.team1);
+      updateValue(betType, "team2", v.team2);
+    } else if (bet.inputType === "player") {
+      updateValue(betType, "player", value);
+    } else if (bet.inputType === "number") {
+      updateValue(betType, "goals", value);
+    } else if (bet.inputType === "group") {
+      updateValue(betType, "group", value);
+    }
     setActiveSos(null);
   }
 
@@ -228,9 +251,15 @@ export default function TurneringForm({ existingBets, isLocked }: Props) {
               </div>
             )}
 
-            {isLocked && hasValue && (
-              <p className="text-amber-400 text-xs">🔒 Låst gissning: {Object.values(existing!).join(" vs ")}</p>
-            )}
+            {isLocked && hasValue && (() => {
+              const eb = existingBets.find((e) => e.bet_type === bet.id);
+              return (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-amber-400/80 text-xs">🔒 {Object.values(existing!).join(" vs ")}</p>
+                  <StatusPill points_awarded={eb?.points_awarded ?? null} is_correct={eb?.is_correct ?? null} />
+                </div>
+              );
+            })()}
             {isLocked && !hasValue && (
               <p className="text-red-400 text-xs">🔒 Ingen gissning lagd — turneringen har börjat.</p>
             )}

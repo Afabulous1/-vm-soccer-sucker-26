@@ -75,7 +75,7 @@ export default function LeaderboardTabs({
               const mainVal =
                 tab === "total"  ? `${entry.points_total.toLocaleString("sv-SE")} p` :
                 tab === "week"   ? `${entry.weekly_points.toLocaleString("sv-SE")} p` :
-                                   `${entry.current_streak} rätta`;
+                                   `${entry.current_streak} rätt`;
 
               const sub =
                 tab === "total" && entry.current_streak > 0

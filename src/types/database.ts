@@ -6,7 +6,8 @@ export type PowerupType =
   | "taktikgeniet"
   | "sexpoangaren"
   | "forsakringen"
-  | "tidsmaskinen";
+  | "tidsmaskinen"
+  | "joker";
 
 // Matches Supabase's expected GenericSchema format
 export type Database = {
@@ -255,6 +256,7 @@ export type Database = {
       match_status: MatchStatus;
       powerup_type: PowerupType;
     };
+    // Note: joker is stored in user_powerups but executed via joker_steals table
     CompositeTypes: { [_ in never]: never };
   };
 };

@@ -109,12 +109,12 @@ export const KAOS_BETS: BetDef[] = [
     inputType: "yesno",
   },
   {
-    id: "most_crying",
-    label: "Turneringens dramatiker",
-    description: "Vem gråter mest på kameran? Välj VM:s Oscar-vinnare för bästa skådespeleri.",
+    id: "knockout_hattrick",
+    label: "Hattrick i ett slutspelsmöte",
+    description: "Någon spelare gör tre mål i samma knockout-match (åttondel, kvart, semi eller final).",
     points: 10000,
     category: "kaos",
-    inputType: "player",
+    inputType: "yesno",
   },
 ];
 
@@ -144,10 +144,10 @@ export const MATCH_BET_TYPES: BetDef[] = [
     inputType: "player",
   },
   {
-    id: "both_teams_score",
-    label: "Båda lagen gör mål",
-    description: "Gissar du att båda lagen gör minst ett mål?",
-    points: 5,
+    id: "red_card_shown",
+    label: "Rött kort visas",
+    description: "Visas något rött kort i matchen? (Direkt eller dubbla gult)",
+    points: 15,
     category: "match",
     inputType: "yesno",
   },

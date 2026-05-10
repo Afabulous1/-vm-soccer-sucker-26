@@ -11,7 +11,13 @@
     "sync:results": "tsx scripts/sync-results.ts",
     "sync:players": "tsx scripts/sync-players.ts",
     "db:migrate": "tsx scripts/migrate.ts",
-    "score:bets": "tsx scripts/score-bets.ts"
+    "score:bets": "tsx scripts/score-bets.ts",
+    "seed:mock": "tsx scripts/seed-mock-tournament.ts",
+    "seed:bets": "tsx scripts/seed-mock-bets.ts",
+    "verify:sim": "tsx scripts/verify-sim.ts",
+    "delete:users": "tsx scripts/delete-all-users.ts",
+    "score:tournament": "tsx scripts/score-tournament-bets.ts",
+    "migrate:joker": "tsx scripts/migrate-joker.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

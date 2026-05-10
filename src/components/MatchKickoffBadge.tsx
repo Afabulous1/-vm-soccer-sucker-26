@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { getSimOffsetMs } from "@/lib/now";
 
-function getLeft(target: Date) {
-  const total = Math.max(0, target.getTime() - Date.now());
+function getLeft(target: Date, offset: number) {
+  const total = Math.max(0, target.getTime() - (Date.now() + offset));
   const days    = Math.floor(total / 86_400_000);
   const hours   = Math.floor((total / 3_600_000) % 24);
   const minutes = Math.floor((total / 60_000) % 60);
@@ -13,12 +14,13 @@ function getLeft(target: Date) {
 
 export default function MatchKickoffBadge({ kickoffAt }: { kickoffAt: string }) {
   const target  = new Date(kickoffAt);
-  const [left, setLeft] = useState(() => getLeft(target));
+  const offset  = useMemo(() => getSimOffsetMs(), []);
+  const [left, setLeft] = useState(() => getLeft(target, offset));
 
   useEffect(() => {
-    const id = setInterval(() => setLeft(getLeft(target)), 1_000);
+    const id = setInterval(() => setLeft(getLeft(target, offset)), 1_000);
     return () => clearInterval(id);
-  });
+  }, [target, offset]);
 
   if (left.total <= 0) {
     return <span className="text-amber-400 text-xs font-semibold">🔒 Låst</span>;

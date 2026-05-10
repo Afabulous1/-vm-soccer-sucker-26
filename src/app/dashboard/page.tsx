@@ -3,13 +3,16 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatar } from "@/lib/avatars";
 import { BETTING_OPENS, TOURNAMENT_LOCK, TURNERING_BETS, KAOS_BETS, MATCH_BET_TYPES } from "@/lib/bets";
+import { getNowServer } from "@/lib/now";
 import AvatarCard from "@/components/AvatarCard";
 import BigCountdown from "@/components/BigCountdown";
 import BottomNav from "@/components/BottomNav";
 import FeatureGuide from "@/components/FeatureGuide";
 import LoginWelcome from "@/components/LoginWelcome";
 import LeaderboardTabs from "./LeaderboardTabs";
+import LiveFeedSection from "./LiveFeedSection";
 import TrashTalkWall from "./TrashTalkWall";
+import { getFlag } from "@/lib/flags";
 
 function RankBadge({ rank }: { rank: number | null }) {
   if (!rank) return null;
@@ -55,6 +58,8 @@ export default async function DashboardPage() {
     { data: pendingBets },
     { data: recentMatches },
     { data: upcomingMatches },
+    { data: allProfiles },
+    { data: jokerInv },
   ] = await Promise.all([
     // Full leaderboard for tabs (sorted by rank)
     supabase.from("leaderboard_cache").select("*").order("rank", { ascending: true }),
@@ -66,9 +71,9 @@ export default async function DashboardPage() {
     // Points already awarded
     supabase.from("bets").select("points_awarded")
       .eq("user_id", user.id).not("points_awarded", "is", null),
-    // Pending: locked but not yet evaluated
+    // Pending: placed but not yet evaluated (includes tournament/kaos bets pre-lock)
     supabase.from("bets").select("points_wager")
-      .eq("user_id", user.id).not("locked_at", "is", null).is("is_correct", null),
+      .eq("user_id", user.id).is("is_correct", null),
     // Recent finished matches (last 6)
     supabase.from("matches")
       .select("id, home_team, away_team, home_score, away_score, kickoff_at, stage, group_name, status")
@@ -79,6 +84,16 @@ export default async function DashboardPage() {
       .select("id, home_team, away_team, kickoff_at, stage, group_name")
       .eq("status", "scheduled")
       .order("kickoff_at", { ascending: true }).limit(4),
+    // All signed-up users
+    supabase.from("profiles")
+      .select("user_id, username, avatar_key, points_total, created_at")
+      .order("created_at", { ascending: true }),
+    // Joker inventory
+    supabase.from("user_powerups")
+      .select("quantity")
+      .eq("user_id", user.id)
+      .eq("powerup_type", "joker")
+      .maybeSingle(),
   ]);
 
   // ── Bet counts ────────────────────────────────────────────────────────────
@@ -104,9 +119,12 @@ export default async function DashboardPage() {
   const maxPossible    = awarded + pending + open;
 
   // ── State flags ───────────────────────────────────────────────────────────
-  const now           = new Date();
+  const now           = await getNowServer();
   const bettingOpen   = now >= BETTING_OPENS;
   const isLocked      = now >= TOURNAMENT_LOCK;
+  const SEMI_START    = new Date("2026-07-08T00:00:00Z");
+  const isSemiPhase   = now >= SEMI_START;
+  const hasJoker      = (jokerInv?.quantity ?? 0) > 0;
   const avatar        = getAvatar(profile.avatar_key);
   const myRank        = myRankData?.rank ?? null;
   const streak        = myRankData?.current_streak ?? 0;
@@ -191,7 +209,7 @@ export default async function DashboardPage() {
                 <RankBadge rank={myRank} />
                 {streak > 0 && (
                   <span className="text-xs bg-orange-900/40 border border-orange-600/30 text-orange-400 font-semibold px-2 py-0.5 rounded-full">
-                    🔥 {streak} rätta i rad
+                    🔥 {streak} rätt i rad
                   </span>
                 )}
                 {weeklyPts > 0 && (
@@ -272,6 +290,9 @@ export default async function DashboardPage() {
           </div>
         )}
 
+        {/* ── Live feed / announcements ──────────────────────────────────── */}
+        <LiveFeedSection now={now} leaderboard={leaderboard ?? []} />
+
         {/* ── Bet category cards ────────────────────────────────────────── */}
         <div>
           <h2 className="font-bebas text-2xl text-gold tracking-widest mb-3">MINA GISSNINGAR</h2>
@@ -309,7 +330,7 @@ export default async function DashboardPage() {
                   className="flex items-center gap-3 rounded-xl border border-pitch-light/20 bg-pitch/30 px-4 py-3"
                 >
                   <div className="flex-1 min-w-0 text-right">
-                    <p className="text-white font-semibold text-sm truncate">{m.home_team}</p>
+                    <p className="text-white font-semibold text-sm truncate">{getFlag(m.home_team)} {m.home_team}</p>
                   </div>
                   <div className="shrink-0 text-center px-3">
                     <p className="font-bebas text-xl text-gold tracking-widest">
@@ -320,7 +341,7 @@ export default async function DashboardPage() {
                     </p>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{m.away_team}</p>
+                    <p className="text-white font-semibold text-sm truncate">{getFlag(m.away_team)} {m.away_team}</p>
                   </div>
                 </div>
               ))}
@@ -340,18 +361,46 @@ export default async function DashboardPage() {
                   className="flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-900/10 px-4 py-3 hover:border-violet-500/40 transition-all group"
                 >
                   <div className="flex-1 min-w-0 text-right">
-                    <p className="text-white font-semibold text-sm truncate">{m.home_team}</p>
+                    <p className="text-white font-semibold text-sm truncate">{getFlag(m.home_team)} {m.home_team}</p>
                   </div>
                   <div className="shrink-0 text-center px-3">
                     <p className="text-green-700 font-bold text-xs">vs</p>
                     <p className="text-violet-400 text-[10px] mt-0.5">{formatKickoff(m.kickoff_at)}</p>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{m.away_team}</p>
+                    <p className="text-white font-semibold text-sm truncate">{getFlag(m.away_team)} {m.away_team}</p>
                   </div>
                   <span className="shrink-0 text-violet-500 group-hover:text-violet-300 transition-colors">→</span>
                 </Link>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Joker card ───────────────────────────────────────────────── */}
+        {hasJoker && isSemiPhase && (
+          <Link
+            href="/dashboard/joker"
+            className="block rounded-2xl border-2 border-purple-500/60 bg-gradient-to-br from-purple-900/50 via-pitch/60 to-pitch-dark/80 p-5 hover:border-purple-400/80 hover:scale-[1.02] transition-all duration-200 shadow-xl shadow-purple-900/30 active:scale-95"
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-5xl">🃏</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-bebas text-2xl text-purple-300 tracking-widest leading-none">JOKER AKTIV!</p>
+                <p className="text-green-300 text-xs mt-1">
+                  Stjäl poängen från en annan spelares matchvinst. Kan bara användas en gång — välj klokt!
+                </p>
+              </div>
+              <span className="shrink-0 text-purple-400 text-2xl">→</span>
+            </div>
+          </Link>
+        )}
+        {hasJoker && !isSemiPhase && (
+          <div className="rounded-2xl border border-purple-500/30 bg-purple-900/10 p-4 flex items-center gap-3">
+            <span className="text-3xl shrink-0">🃏</span>
+            <div>
+              <p className="font-bebas text-purple-400 tracking-wider">JOKER — LÅST TILLS SEMIFINAL</p>
+              <p className="text-green-700 text-xs">Aktiveras 8 juli när semifinalerna börjar.</p>
             </div>
           </div>
         )}
@@ -367,6 +416,36 @@ export default async function DashboardPage() {
             currentAvatarKey={profile.avatar_key}
             currentUserPoints={profile.points_total}
           />
+        </div>
+
+        {/* ── Deltagare ─────────────────────────────────────────────────── */}
+        <div>
+          <h2 className="font-bebas text-2xl text-gold tracking-widest mb-3">
+            DELTAGARE ({allProfiles?.length ?? 0})
+          </h2>
+          <div className="rounded-2xl border border-pitch-light/20 bg-pitch/40 divide-y divide-pitch-light/10">
+            {(allProfiles ?? []).map((p, i) => {
+              const av = getAvatar(p.avatar_key);
+              const isMe = p.user_id === user.id;
+              return (
+                <div key={p.user_id} className={`flex items-center gap-3 px-4 py-3 ${isMe ? "bg-gold/5" : ""}`}>
+                  <span className="text-green-700 text-xs w-5 shrink-0 tabular-nums">{i + 1}</span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg shrink-0 bg-gradient-to-br ${av?.gradient ?? "from-pitch to-pitch-light"}`}>
+                    {av?.emoji ?? "⚽"}
+                  </div>
+                  <span className={`font-semibold text-sm flex-1 truncate ${isMe ? "text-gold" : "text-white"}`}>
+                    {p.username}{isMe && " (du)"}
+                  </span>
+                  <span className="text-green-400 text-xs tabular-nums shrink-0">
+                    {p.points_total.toLocaleString("sv-SE")} p
+                  </span>
+                </div>
+              );
+            })}
+            {!allProfiles?.length && (
+              <p className="text-green-700 text-sm px-4 py-4 text-center">Inga deltagare ännu.</p>
+            )}
+          </div>
         </div>
 
         {/* ── Trash talk ────────────────────────────────────────────────── */}

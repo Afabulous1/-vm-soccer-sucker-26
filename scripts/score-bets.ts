@@ -23,6 +23,7 @@ interface FinishedMatch {
   home_score: number;
   away_score: number;
   first_scorer: string | null;
+  red_card_count: number | null;
 }
 
 interface UnevaluatedBet {
@@ -43,18 +44,35 @@ interface UnevaluatedBet {
 async function main() {
   console.log("=== score-bets: starting ===");
 
-  // 1. Find all finished matches
+  // 1. Find all finished matches (first_scorer may not exist in older schemas)
   const { data: matches, error: matchErr } = await supabase
     .from("matches")
-    .select("id, home_score, away_score, first_scorer")
+    .select("id, home_score, away_score, first_scorer, red_card_count")
     .eq("status", "finished");
 
   if (matchErr) {
+    if (matchErr.message.includes("first_scorer")) {
+      console.warn("⚠️  Column 'first_scorer' missing — run in Supabase SQL editor:");
+      console.warn("   ALTER TABLE matches ADD COLUMN IF NOT EXISTS first_scorer TEXT;");
+      console.warn("   first_scorer bets will be skipped until then.\n");
+      // Retry without first_scorer
+      const { data: matchesFallback, error: fallbackErr } = await supabase
+        .from("matches")
+        .select("id, home_score, away_score")
+        .eq("status", "finished");
+      if (fallbackErr) { console.error("Failed:", fallbackErr.message); process.exit(1); }
+      (matches as unknown as FinishedMatch[]) === null;
+      return runScoring((matchesFallback ?? []).map((m) => ({ ...m, first_scorer: null })) as FinishedMatch[]);
+    }
     console.error("Failed to fetch finished matches:", matchErr.message);
     process.exit(1);
   }
 
   const finishedMatches = (matches ?? []) as unknown as FinishedMatch[];
+  return runScoring(finishedMatches);
+}
+
+async function runScoring(finishedMatches: FinishedMatch[]) {
   console.log(`Found ${finishedMatches.length} finished match(es).`);
 
   let totalScored = 0;
@@ -158,15 +176,16 @@ function scoreBet(
         shield_used,
       );
 
-    case "both_teams_score":
-      return evalBothTeamsScore(
-        bet_value,
-        home_score,
-        away_score,
-        points_wager,
-        power_up_used,
-        shield_used,
-      );
+    case "red_card_shown": {
+      if (match.red_card_count === null) {
+        console.warn(`    Bet ${bet.id}: red_card_shown — red_card_count missing, skipping.`);
+        return { correct: false, pointsAwarded: 0 };
+      }
+      const hadRedCard = match.red_card_count > 0;
+      const guessed = (bet_value as { answer: boolean }).answer === true;
+      const correct = guessed === hadRedCard;
+      return { correct, pointsAwarded: correct ? points_wager : 0 };
+    }
 
     case "yellow_cards":
       // Note: yellow_cards count is stored on the match; we'd need it here.
@@ -331,6 +350,16 @@ async function rebuildLeaderboard() {
   } else {
     console.log(`  Leaderboard updated with ${rows.length} user(s).`);
   }
+
+  // Sync points_total back to profiles so the dashboard hero card shows live points
+  for (const row of rows) {
+    const { error: pErr } = await supabase
+      .from("profiles")
+      .update({ points_total: row.points_total })
+      .eq("user_id", row.user_id);
+    if (pErr) console.warn(`  Profile sync failed for ${row.user_id}: ${pErr.message}`);
+  }
+  console.log(`  Synced points_total to ${rows.length} profile(s).`);
 }
 
 main().catch((err) => {

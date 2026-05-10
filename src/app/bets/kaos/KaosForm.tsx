@@ -11,6 +11,18 @@ interface ExistingBet {
   bet_type: string;
   bet_value: unknown;
   locked_at: string | null;
+  points_awarded: number | null;
+  is_correct: boolean | null;
+}
+
+function StatusPill({ points_awarded, is_correct }: { points_awarded: number | null; is_correct: boolean | null }) {
+  if (points_awarded == null) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-slate-400 bg-slate-500/20 border-slate-500/40">Väntande</span>;
+  }
+  if (is_correct) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-emerald-300 bg-emerald-500/20 border-emerald-500/40">Intjänad +{points_awarded}p ✓</span>;
+  }
+  return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-red-400 bg-red-500/20 border-red-500/40">Fel 😢</span>;
 }
 
 interface Props {
@@ -186,7 +198,10 @@ export default function KaosForm({ existingBets, isLocked }: Props) {
             )}
 
             {isLocked && hasValue && (
-              <p className="text-amber-400 text-xs">🔒 Låst gissning: {displaySaved()}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-amber-400/80 text-xs">🔒 {displaySaved()}</p>
+                <StatusPill points_awarded={existing?.points_awarded ?? null} is_correct={existing?.is_correct ?? null} />
+              </div>
             )}
             {isLocked && !hasValue && (
               <p className="text-red-400 text-xs">🔒 Ingen gissning lagd — turneringen har börjat.</p>

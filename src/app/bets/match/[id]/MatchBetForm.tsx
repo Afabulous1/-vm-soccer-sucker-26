@@ -12,6 +12,18 @@ interface ExistingBet {
   bet_type: string;
   bet_value: unknown;
   locked_at: string | null;
+  points_awarded: number | null;
+  is_correct: boolean | null;
+}
+
+function StatusPill({ points_awarded, is_correct }: { points_awarded: number | null; is_correct: boolean | null }) {
+  if (points_awarded == null) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-slate-400 bg-slate-500/20 border-slate-500/40">Väntande</span>;
+  }
+  if (is_correct) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-emerald-300 bg-emerald-500/20 border-emerald-500/40">Intjänad +{points_awarded}p ✓</span>;
+  }
+  return <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold text-red-400 bg-red-500/20 border-red-500/40">Fel 😢</span>;
 }
 
 interface Props {
@@ -21,6 +33,7 @@ interface Props {
   existingBets: ExistingBet[];
   isLocked: boolean;
   lockTime: string;
+  matchStage: string;
 }
 
 export default function MatchBetForm({
@@ -30,6 +43,7 @@ export default function MatchBetForm({
   existingBets,
   isLocked,
   lockTime,
+  matchStage,
 }: Props) {
   const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -82,7 +96,7 @@ export default function MatchBetForm({
       return map[v.result as string] ?? String(v.result);
     }
     if (betType === "exact_score") return `${v.home} – ${v.away}`;
-    if (betType === "both_teams_score") return v.answer === true ? "Ja" : "Nej";
+    if (betType === "red_card_shown") return v.answer === true ? "Ja — rött kort" : "Nej — inga röda";
     return Object.values(v).join(", ");
   }
 
@@ -185,8 +199,8 @@ export default function MatchBetForm({
                   />
                 )}
 
-                {/* Both teams score: yes/no */}
-                {bet.id === "both_teams_score" && (
+                {/* Red card: yes/no */}
+                {bet.id === "red_card_shown" && (
                   <div className="flex gap-2">
                     {[true, false].map((opt) => (
                       <button
@@ -196,12 +210,12 @@ export default function MatchBetForm({
                         className={`flex-1 py-3 rounded-xl font-bebas text-xl tracking-widest transition-all active:scale-95 ${
                           val.answer === opt
                             ? opt
-                              ? "bg-green-600 text-white scale-105"
-                              : "bg-red-600 text-white scale-105"
+                              ? "bg-red-600 text-white scale-105"
+                              : "bg-green-700 text-white scale-105"
                             : "bg-pitch-dark border border-pitch-light/40 text-green-400 hover:border-violet-400/50"
                         }`}
                       >
-                        {opt ? "JA ⚽" : "NEJ 🧱"}
+                        {opt ? "JA 🟥" : "NEJ ✅"}
                       </button>
                     ))}
                   </div>
@@ -222,6 +236,7 @@ export default function MatchBetForm({
 
                 <PowerUpSelector
                   betType={bet.id}
+                  matchStage={matchStage}
                   currentPowerUp={powerUps[bet.id]?.powerUp ?? null}
                   currentShield={powerUps[bet.id]?.shield ?? null}
                   onSelect={(powerUp, shield) =>
@@ -244,7 +259,10 @@ export default function MatchBetForm({
             )}
 
             {isLocked && hasValue && (
-              <p className="text-amber-400 text-xs">🔒 Låst gissning: {displaySaved(bet.id)}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-amber-400/80 text-xs">🔒 {displaySaved(bet.id)}</p>
+                <StatusPill points_awarded={existing?.points_awarded ?? null} is_correct={existing?.is_correct ?? null} />
+              </div>
             )}
             {isLocked && !hasValue && (
               <p className="text-red-400 text-xs">🔒 Ingen gissning lagd — matchen har börjat.</p>

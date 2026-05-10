@@ -23,11 +23,11 @@ const CATEGORY_STYLES: Record<BetCategory, { border: string; badge: string; labe
 };
 
 const STATUS_STYLES: Record<BetStatus, { pill: string; label: string }> = {
-  open:    { pill: "bg-green-500/20 text-green-300 border border-green-500/40",   label: "Öppen" },
-  locked:  { pill: "bg-amber-500/20 text-amber-300 border border-amber-500/40",   label: "Låst" },
-  won:     { pill: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40", label: "Rätt! 🎉" },
-  lost:    { pill: "bg-red-500/20 text-red-400 border border-red-500/40",         label: "Fel 😢" },
-  pending: { pill: "bg-slate-500/20 text-slate-400 border border-slate-500/40",   label: "Väntar..." },
+  open:    { pill: "bg-green-500/20 text-green-300 border border-green-500/40",      label: "Öppen" },
+  locked:  { pill: "bg-amber-500/20 text-amber-300 border border-amber-500/40",      label: "Låst" },
+  won:     { pill: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40", label: "Intjänad ✓" },
+  lost:    { pill: "bg-red-500/20 text-red-400 border border-red-500/40",            label: "Fel 😢" },
+  pending: { pill: "bg-slate-500/20 text-slate-400 border border-slate-500/40",      label: "Väntande" },
 };
 
 const POWERUP_LABELS: Record<string, string> = {
@@ -91,9 +91,11 @@ export default function BetCard({
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-3">
           {status === "won" && pointsAwarded != null ? (
-            <span className="text-emerald-400 font-bold">+{pointsAwarded} p</span>
+            <span className="text-emerald-400 font-bold">Intjänad +{pointsAwarded} p</span>
           ) : status === "lost" ? (
-            <span className="text-red-400 font-semibold">−{pointsWager} p</span>
+            <span className="text-red-400 font-semibold">Fel — 0 p</span>
+          ) : status === "pending" ? (
+            <span className="text-slate-400">{pointsWager} p möjliga</span>
           ) : (
             <span className="text-green-600">{pointsWager} p insats</span>
           )}

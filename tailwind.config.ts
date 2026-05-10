@@ -21,6 +21,7 @@ const config: Config = {
         safe: "#16a34a",
         devil: "#ea580c",
         crazy: "#dc2626",
+        joker: "#a855f7",
       },
       fontFamily: {
         bebas: ["var(--font-bebas)", "sans-serif"],

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUserBets } from "@/app/bets/actions";
 import { TOURNAMENT_LOCK } from "@/lib/bets";
+import { getNowServer } from "@/lib/now";
 import CountdownTimer from "@/components/CountdownTimer";
 import TurneringForm from "./TurneringForm";
 
@@ -11,7 +12,7 @@ export default async function TurneringPage() {
   if (!user) redirect("/auth");
 
   const existingBets = await getUserBets("turnering");
-  const isLocked = new Date() >= TOURNAMENT_LOCK;
+  const isLocked = (await getNowServer()) >= TOURNAMENT_LOCK;
 
   return (
     <div className="space-y-6">

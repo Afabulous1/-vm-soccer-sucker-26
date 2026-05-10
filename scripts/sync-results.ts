@@ -12,6 +12,10 @@ interface FdoGoal {
   team: { name: string };
 }
 
+interface FdoBooking {
+  card: "YELLOW" | "RED" | "YELLOW_RED";
+}
+
 interface FdoMatchDetail {
   id: number;
   status: string;
@@ -20,6 +24,7 @@ interface FdoMatchDetail {
     halfTime:  { home: number | null; away: number | null };
   };
   goals: FdoGoal[];
+  bookings: FdoBooking[];
 }
 
 interface FdoMatchesResponse {
@@ -59,14 +64,19 @@ async function main() {
         .filter((g) => g.type !== "OWN" && g.scorer)
         .sort((a, b) => a.minute - b.minute)[0];
 
+      const redCardCount = (detail.bookings ?? []).filter(
+        (b) => b.card === "RED" || b.card === "YELLOW_RED",
+      ).length;
+
       const { error } = await supabase
         .from("matches")
         .update({
-          status:        mapStatus(detail.status),
-          home_score:    detail.score.fullTime.home,
-          away_score:    detail.score.fullTime.away,
-          first_scorer:  firstGoal?.scorer?.name ?? null,
-          updated_at:    new Date().toISOString(),
+          status:          mapStatus(detail.status),
+          home_score:      detail.score.fullTime.home,
+          away_score:      detail.score.fullTime.away,
+          first_scorer:    firstGoal?.scorer?.name ?? null,
+          red_card_count:  redCardCount,
+          updated_at:      new Date().toISOString(),
         } as never)
         .eq("id", match.id);
 

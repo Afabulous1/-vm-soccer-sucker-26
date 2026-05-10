@@ -60,6 +60,7 @@ const POWER_UP_INFO: PowerUpInfo[] = [
 
 interface Props {
   betType: string;
+  matchStage?: string;
   currentPowerUp: PowerupType | null;
   currentShield: PowerupType | null;
   onSelect: (powerUp: PowerupType | null, shield: PowerupType | null) => void;
@@ -72,13 +73,14 @@ interface Props {
 
 export default function PowerUpSelector({
   betType,
+  matchStage,
   currentPowerUp,
   currentShield,
   onSelect,
   disabled = false,
 }: Props) {
-  // betType is reserved for future per-type power-up filtering
   void betType;
+  const stageLabel = matchStage === "group_stage" ? "gruppspel" : matchStage ? "slutspel" : null;
 
   const [inventory, setInventory] = useState<Record<PowerupType, number>>(
     {} as Record<PowerupType, number>,
@@ -145,6 +147,11 @@ export default function PowerUpSelector({
 
   return (
     <div className="rounded-xl border border-pitch-light/20 bg-pitch/30 p-3 space-y-2">
+      {stageLabel && (
+        <p className="text-[10px] text-green-600 font-semibold">
+          ⚡ Krafter — 1× per {stageLabel} · 1× per slutspel
+        </p>
+      )}
       {/* Offensive power-ups row */}
       <div>
         <p className="text-[10px] uppercase tracking-widest text-green-600 mb-1.5 font-semibold">

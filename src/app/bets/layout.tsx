@@ -3,6 +3,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { BETTING_OPENS, TOURNAMENT_LOCK } from "@/lib/bets";
+import { getNowServer } from "@/lib/now";
 import BigCountdown from "@/components/BigCountdown";
 import BottomNav from "@/components/BottomNav";
 
@@ -13,7 +14,7 @@ export default async function BetsLayout({ children }: { children: React.ReactNo
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth");
 
-  const now          = new Date();
+  const now          = await getNowServer();
   const bettingOpen  = now >= BETTING_OPENS;
   const isLocked     = now >= TOURNAMENT_LOCK;
 
@@ -81,6 +82,12 @@ export default async function BetsLayout({ children }: { children: React.ReactNo
       <nav className="relative sticky top-0 z-40 bg-pitch-dark/95 backdrop-blur border-b border-pitch-light/20">
         <div className="max-w-4xl mx-auto px-3">
           <div className="flex items-center gap-1 overflow-x-auto py-2.5 scrollbar-none">
+            <Link
+              href="/dashboard"
+              className="font-bebas text-gold text-xl tracking-widest hover:text-yellow-400 transition-colors shrink-0 pr-2 border-r border-pitch-light/20 mr-1"
+            >
+              ⚽ VM 26
+            </Link>
             {navItems.map((item) => (
               <Link
                 key={item.href}

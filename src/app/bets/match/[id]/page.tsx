@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMatchBets } from "@/app/bets/actions";
+import { getNowServer } from "@/lib/now";
+import { getFlag } from "@/lib/flags";
 import CountdownTimer from "@/components/CountdownTimer";
 import MatchBetForm from "./MatchBetForm";
 
@@ -31,7 +33,7 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
 
   const existingBets = await getMatchBets(id);
   const kickoffDate = new Date(match.kickoff_at);
-  const isLocked = new Date() >= kickoffDate;
+  const isLocked = (await getNowServer()) >= kickoffDate;
 
   return (
     <div className="space-y-6">
@@ -42,7 +44,7 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
         </p>
         <div className="flex items-center justify-between gap-4">
           <div className="text-center flex-1">
-            <p className="text-white font-bold text-lg leading-tight">{match.home_team}</p>
+            <p className="text-white font-bold text-lg leading-tight">{getFlag(match.home_team)} {match.home_team}</p>
             <p className="text-green-400/60 text-xs mt-0.5">Hemma</p>
           </div>
           <div className="text-center shrink-0">
@@ -55,7 +57,7 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
             )}
           </div>
           <div className="text-center flex-1">
-            <p className="text-white font-bold text-lg leading-tight">{match.away_team}</p>
+            <p className="text-white font-bold text-lg leading-tight">{getFlag(match.away_team)} {match.away_team}</p>
             <p className="text-green-400/60 text-xs mt-0.5">Borta</p>
           </div>
         </div>
@@ -77,6 +79,7 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
         existingBets={existingBets}
         isLocked={isLocked}
         lockTime={match.kickoff_at}
+        matchStage={match.stage}
       />
     </div>
   );
