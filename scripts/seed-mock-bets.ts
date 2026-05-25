@@ -90,6 +90,16 @@ async function main() {
     { match_id: MATCH(11), bet_type: "match_result", bet_value: { result: "home" },   points_wager: 10, locked_at: null },
     { match_id: MATCH(15), bet_type: "match_result", bet_value: { result: "home" },   points_wager: 10, locked_at: null },
     { match_id: MATCH(18), bet_type: "match_result", bet_value: { result: "away" },   points_wager: 10, locked_at: null },
+
+    // yellow_cards bets — test the new scoring pipeline
+    // Match 1 actual: 3 yellow cards → count: 3 = EXACT (75p)
+    { match_id: MATCH(1), bet_type: "yellow_cards", bet_value: { count: 3 }, points_wager: 75, locked_at: NOW },
+    // Match 2 actual: 5 yellow cards → count: 8 = off by 3 (0p)
+    { match_id: MATCH(2), bet_type: "yellow_cards", bet_value: { count: 8 }, points_wager: 75, locked_at: NOW },
+    // Match 3 actual: 4 yellow cards → count: 5 = ±1 (40p)
+    { match_id: MATCH(3), bet_type: "yellow_cards", bet_value: { count: 5 }, points_wager: 75, locked_at: NOW },
+    // Match 4 actual: 2 yellow cards → count: 2 = EXACT (75p)
+    { match_id: MATCH(4), bet_type: "yellow_cards", bet_value: { count: 2 }, points_wager: 75, locked_at: NOW },
   ].map((b) => ({
     user_id,
     bet_category: "match" as const,
@@ -153,19 +163,23 @@ async function main() {
 
   console.log(`\n✅ Seeded ${matchBets.length} match + ${turneringBets.length} turnering + ${kaosBets.length} kaos bets`);
   console.log("\nExpected after npm run score:bets:");
-  console.log("  ✓ Match 1 match_result (home)     → Intjänad  10p");
-  console.log("  ✓ Match 1 exact_score (2-1)        → Intjänad  50p");
-  console.log("  ~ Match 1 red_card_shown           → Väntande  (red_card_count not in mock)");
-  console.log("  ✗ Match 2 match_result (away)      → Fel        0p");
-  console.log("  ✗ Match 2 exact_score (1-0)        → Fel        0p");
-  console.log("  ✓ Match 3 match_result (draw)      → Intjänad  10p");
-  console.log("  ~ Match 3 red_card_shown           → Väntande  (red_card_count not in mock)");
-  console.log("  ✗ Match 4 match_result (draw)      → Fel        0p");
-  console.log("  ~ Match 4 red_card_shown           → Väntande  (red_card_count not in mock)");
-  console.log("  ✓ Match 7 match_result (away)      → Intjänad  10p");
-  console.log("  ✓ Match 9 match_result (away)      → Intjänad  10p");
-  console.log("  ~ Matches 11, 15, 18               → Väntande  (future, unscored)");
-  console.log("  ~ All turnering + kaos bets        → Väntande  (scored manually at end)");
+  console.log("  ✓ Match 1 match_result (home)       → Intjänad  10p");
+  console.log("  ✓ Match 1 exact_score (2-1)          → Intjänad  50p");
+  console.log("  ✓ Match 1 red_card_shown (false)     → Intjänad  15p  (red_card_count=0)");
+  console.log("  ✓ Match 1 yellow_cards (count=3)     → Intjänad  75p  EXACT (actual=3)");
+  console.log("  ✗ Match 2 match_result (away)        → Fel        0p");
+  console.log("  ✗ Match 2 exact_score (1-0)          → Fel        0p");
+  console.log("  ✗ Match 2 yellow_cards (count=8)     → Fel        0p  off by 3 (actual=5)");
+  console.log("  ✓ Match 3 match_result (draw)        → Intjänad  10p");
+  console.log("  ✓ Match 3 red_card_shown (false)     → Intjänad  15p  (red_card_count=0)");
+  console.log("  ~ Match 3 yellow_cards (count=5)     → Delvis    40p  ±1 (actual=4)");
+  console.log("  ✗ Match 4 match_result (draw)        → Fel        0p");
+  console.log("  ✗ Match 4 red_card_shown (true)      → Fel        0p  (no red card)");
+  console.log("  ✓ Match 4 yellow_cards (count=2)     → Intjänad  75p  EXACT (actual=2)");
+  console.log("  ✓ Match 7 match_result (away)        → Intjänad  10p");
+  console.log("  ✓ Match 9 match_result (away)        → Intjänad  10p");
+  console.log("  ~ Matches 11, 15, 18                 → Väntande  (future, unscored)");
+  console.log("  ~ All turnering + kaos bets          → Väntande  (scored manually at end)");
   console.log("  (vm_winner=Sverige, finalists=Sverige+Spanien — ready to test tournament scoring)");
   console.log("\nNow run: npm run score:bets");
 }

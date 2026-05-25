@@ -24,6 +24,7 @@ interface FinishedMatch {
   away_score: number;
   first_scorer: string | null;
   red_card_count: number | null;
+  yellow_card_count: number | null;
 }
 
 interface UnevaluatedBet {
@@ -47,7 +48,7 @@ async function main() {
   // 1. Find all finished matches (first_scorer may not exist in older schemas)
   const { data: matches, error: matchErr } = await supabase
     .from("matches")
-    .select("id, home_score, away_score, first_scorer, red_card_count")
+    .select("id, home_score, away_score, first_scorer, red_card_count, yellow_card_count")
     .eq("status", "finished");
 
   if (matchErr) {
@@ -141,6 +142,7 @@ function scoreBet(
 ): { correct: boolean; pointsAwarded: number } {
   const { bet_type, bet_value, points_wager, power_up_used, shield_used } = bet;
   const { home_score, away_score, first_scorer } = match;
+  // yellow_card_count and red_card_count are accessed via match.* in each case
 
   switch (bet_type) {
     case "match_result":
@@ -178,7 +180,9 @@ function scoreBet(
 
     case "red_card_shown": {
       if (match.red_card_count === null) {
-        console.warn(`    Bet ${bet.id}: red_card_shown — red_card_count missing, skipping.`);
+        console.warn(
+          `    Bet ${bet.id}: red_card_shown — red_card_count is null (admin must set it), skipping.`,
+        );
         return { correct: false, pointsAwarded: 0 };
       }
       const hadRedCard = match.red_card_count > 0;
@@ -187,14 +191,21 @@ function scoreBet(
       return { correct, pointsAwarded: correct ? points_wager : 0 };
     }
 
-    case "yellow_cards":
-      // Note: yellow_cards count is stored on the match; we'd need it here.
-      // The matches table doesn't have a yellow_cards column in the current
-      // schema, so we skip evaluation and mark as pending (null).
-      // When the schema is extended, replace 0 with match.yellow_cards.
-      // For now, return a "not yet scorable" marker — we'll skip these.
-      console.warn(`    Bet ${bet.id}: yellow_cards — match lacks card data, skipping.`);
-      return { correct: false, pointsAwarded: 0 };
+    case "yellow_cards": {
+      if (match.yellow_card_count === null) {
+        console.warn(
+          `    Bet ${bet.id}: yellow_cards — yellow_card_count is null (admin must set it), skipping.`,
+        );
+        return { correct: false, pointsAwarded: 0 };
+      }
+      return evalYellowCards(
+        bet_value,
+        match.yellow_card_count,
+        points_wager,
+        power_up_used,
+        shield_used,
+      );
+    }
 
     default:
       console.warn(`    Bet ${bet.id}: unknown bet_type '${bet_type}', skipping.`);

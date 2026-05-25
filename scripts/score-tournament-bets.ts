@@ -12,8 +12,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ── Edit these to match the actual tournament results ──────────────────────
-const OUTCOMES = {
+// ── Hardcoded fallback outcomes (used when admin_outcomes table has no row) ─
+const OUTCOMES_FALLBACK = {
   // Turnering bets
   vm_winner:      "Sverige",
   finalists:      ["Sverige", "Spanien"] as string[],
@@ -30,24 +30,66 @@ const OUTCOMES = {
   knockout_hattrick:  false,
 } as const;
 
-type Outcomes = typeof OUTCOMES;
+// Runtime outcomes map — populated in main() from DB + fallback
+type OutcomeValue = string | string[] | number | boolean;
+type OutcomesMap = Record<string, OutcomeValue>;
 
-function scoreTurneringBet(betType: string, betValue: Record<string, unknown>): { correct: boolean; points: number } | null {
+async function loadOutcomes(): Promise<OutcomesMap> {
+  const { data: rows, error } = await supabase
+    .from("admin_outcomes")
+    .select("bet_type, value_json");
+
+  if (error) {
+    console.warn(`  Could not load admin_outcomes (${error.message}). Using all fallbacks.`);
+  }
+
+  const merged: OutcomesMap = {};
+
+  // Known bet types (turnering + kaos)
+  const allKeys = Object.keys(OUTCOMES_FALLBACK) as Array<keyof typeof OUTCOMES_FALLBACK>;
+
+  for (const key of allKeys) {
+    const dbRow = (rows ?? []).find((r) => r.bet_type === key);
+    if (dbRow) {
+      const vj = dbRow.value_json as Record<string, unknown>;
+      // Decode value_json per bet_type shape
+      if (key === "vm_winner")      merged[key] = vj.team as string;
+      else if (key === "finalists") merged[key] = [vj.team1 as string, vj.team2 as string];
+      else if (key === "top_scorer") merged[key] = vj.player as string;
+      else if (key === "total_goals") merged[key] = vj.goals as number;
+      else if (key === "death_group") merged[key] = vj.group as string;
+      else if (key === "most_red_cards") merged[key] = vj.team as string;
+      else merged[key] = (vj.answer as boolean);
+      console.log(`  From DB: ${key}=${JSON.stringify(merged[key])}`);
+    } else {
+      merged[key] = OUTCOMES_FALLBACK[key] as OutcomeValue;
+      console.log(`  From FALLBACK: ${key}=${JSON.stringify(merged[key])}`);
+    }
+  }
+
+  return merged;
+}
+
+function scoreTurneringBet(
+  betType: string,
+  betValue: Record<string, unknown>,
+  outcomes: OutcomesMap,
+): { correct: boolean; points: number } | null {
   switch (betType) {
     case "vm_winner":
-      return { correct: betValue.team === OUTCOMES.vm_winner, points: 5000 };
+      return { correct: betValue.team === outcomes["vm_winner"], points: 5000 };
     case "finalists": {
-      const f = OUTCOMES.finalists;
+      const f = outcomes["finalists"] as string[];
       const t1 = betValue.team1 as string;
       const t2 = betValue.team2 as string;
-      const correct = (f.includes(t1) && f.includes(t2));
+      const correct = f.includes(t1) && f.includes(t2);
       return { correct, points: 3000 };
     }
     case "top_scorer":
-      return { correct: betValue.player === OUTCOMES.top_scorer, points: 4000 };
+      return { correct: betValue.player === outcomes["top_scorer"], points: 4000 };
     case "total_goals": {
       const guessed = betValue.goals as number;
-      const actual = OUTCOMES.total_goals;
+      const actual = outcomes["total_goals"] as number;
       const diff = Math.abs(guessed - actual);
       if (diff === 0) return { correct: true, points: 2000 };
       if (diff <= 2)  return { correct: false, points: 1000 };
@@ -55,18 +97,21 @@ function scoreTurneringBet(betType: string, betValue: Record<string, unknown>): 
       return { correct: false, points: 0 };
     }
     case "death_group":
-      return { correct: betValue.group === OUTCOMES.death_group, points: 1500 };
+      return { correct: betValue.group === outcomes["death_group"], points: 1500 };
     case "most_red_cards":
-      return { correct: betValue.team === OUTCOMES.most_red_cards, points: 1000 };
+      return { correct: betValue.team === outcomes["most_red_cards"], points: 1000 };
     default:
       return null;
   }
 }
 
-function scoreKaosBet(betType: string, betValue: Record<string, unknown>): { correct: boolean; points: number } | null {
-  const key = betType as keyof Outcomes;
-  if (!(key in OUTCOMES)) return null;
-  const happened = OUTCOMES[key] as boolean;
+function scoreKaosBet(
+  betType: string,
+  betValue: Record<string, unknown>,
+  outcomes: OutcomesMap,
+): { correct: boolean; points: number } | null {
+  if (!(betType in outcomes)) return null;
+  const happened = outcomes[betType] as boolean;
   const guessed = betValue.answer === true;
   const correct = guessed === happened;
   return { correct, points: correct ? 10000 : 0 };
@@ -74,7 +119,10 @@ function scoreKaosBet(betType: string, betValue: Record<string, unknown>): { cor
 
 async function main() {
   console.log("=== score-tournament-bets: starting ===");
-  console.log("Outcomes:", OUTCOMES);
+
+  console.log("Loading outcomes (DB rows override hardcoded fallbacks)...");
+  const outcomes = await loadOutcomes();
+  console.log("Resolved outcomes:", outcomes);
 
   const { data: bets, error } = await supabase
     .from("bets")
@@ -93,9 +141,9 @@ async function main() {
     let result: { correct: boolean; points: number } | null = null;
 
     if (bet.bet_category === "turnering") {
-      result = scoreTurneringBet(bet.bet_type, bv);
+      result = scoreTurneringBet(bet.bet_type, bv, outcomes);
     } else if (bet.bet_category === "kaos") {
-      result = scoreKaosBet(bet.bet_type, bv);
+      result = scoreKaosBet(bet.bet_type, bv, outcomes);
     }
 
     if (!result) {

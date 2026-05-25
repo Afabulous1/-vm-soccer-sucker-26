@@ -35,7 +35,7 @@ async function main() {
   // Fetch matches that are not yet settled
   const { data: pending, error: fetchErr } = await supabase
     .from("matches")
-    .select("id, external_id, status")
+    .select("id, external_id, status, admin_locked")
     .in("status", ["scheduled", "live"])
     .order("kickoff_at", { ascending: true });
 
@@ -46,7 +46,7 @@ async function main() {
   const cutoff = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
   const { data: started } = await supabase
     .from("matches")
-    .select("id, external_id")
+    .select("id, external_id, admin_locked")
     .in("status", ["scheduled", "live"])
     .lte("kickoff_at", cutoff);
 
@@ -56,6 +56,10 @@ async function main() {
 
   let updated = 0;
   for (const match of started) {
+    if ((match as { admin_locked?: boolean }).admin_locked === true) {
+      console.log(`  Match ${match.external_id}: admin_locked=true — skipping.`);
+      continue;
+    }
     try {
       const detail = await fdoFetch<FdoMatchDetail>(`/matches/${match.external_id}`);
 
@@ -68,15 +72,20 @@ async function main() {
         (b) => b.card === "RED" || b.card === "YELLOW_RED",
       ).length;
 
+      const yellowCardCount = (detail.bookings ?? []).filter(
+        (b) => b.card === "YELLOW",
+      ).length;
+
       const { error } = await supabase
         .from("matches")
         .update({
-          status:          mapStatus(detail.status),
-          home_score:      detail.score.fullTime.home,
-          away_score:      detail.score.fullTime.away,
-          first_scorer:    firstGoal?.scorer?.name ?? null,
-          red_card_count:  redCardCount,
-          updated_at:      new Date().toISOString(),
+          status:            mapStatus(detail.status),
+          home_score:        detail.score.fullTime.home,
+          away_score:        detail.score.fullTime.away,
+          first_scorer:      firstGoal?.scorer?.name ?? null,
+          red_card_count:    redCardCount,
+          yellow_card_count: yellowCardCount,
+          updated_at:        new Date().toISOString(),
         } as never)
         .eq("id", match.id);
 

@@ -55,6 +55,10 @@ export type Database = {
           status: MatchStatus;
           home_score: number | null;
           away_score: number | null;
+          first_scorer: string | null;
+          red_card_count: number | null;
+          yellow_card_count: number | null;
+          admin_locked: boolean;
           stage: string;
           group_name: string | null;
           updated_at: string;
@@ -68,6 +72,10 @@ export type Database = {
           status?: MatchStatus;
           home_score?: number | null;
           away_score?: number | null;
+          first_scorer?: string | null;
+          red_card_count?: number | null;
+          yellow_card_count?: number | null;
+          admin_locked?: boolean;
           stage: string;
           group_name?: string | null;
           updated_at?: string;
@@ -81,6 +89,10 @@ export type Database = {
           status?: MatchStatus;
           home_score?: number | null;
           away_score?: number | null;
+          first_scorer?: string | null;
+          red_card_count?: number | null;
+          yellow_card_count?: number | null;
+          admin_locked?: boolean;
           stage?: string;
           group_name?: string | null;
           updated_at?: string;
@@ -239,6 +251,32 @@ export type Database = {
           devil_correct?: number;
           crazy_correct?: number;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      admin_outcomes: {
+        Row: {
+          bet_type: string;
+          value_json: Record<string, unknown>;
+          source: string;
+          notes: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          bet_type: string;
+          value_json?: Record<string, unknown>;
+          source?: string;
+          notes?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          value_json?: Record<string, unknown>;
+          source?: string;
+          notes?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
