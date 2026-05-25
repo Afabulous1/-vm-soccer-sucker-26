@@ -52,6 +52,12 @@ export default function Home() {
           >
             SKAPA KONTO &amp; BÖRJA GISSA 🚀
           </Link>
+          <Link
+            href="/demo"
+            className="block border border-pitch-light/40 text-green-400 hover:border-gold/40 hover:text-gold font-bebas text-lg tracking-widest px-10 py-3 rounded-xl transition-all duration-200 active:scale-95 text-center"
+          >
+            🎭 PROVA GUIDED DEMO FÖRST
+          </Link>
           <p className="text-green-700 text-xs">
             Gratis · Ingen prestige · Du förlorar ändå 😏
           </p>
