@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 // Bump version when guide content changes — forces all users to see it again
-const STORAGE_KEY = "vm26_guide_v3";
+const STORAGE_KEY = "vm26_guide_v4";
 
 const STEPS = [
   {
@@ -51,7 +51,7 @@ const STEPS = [
   {
     emoji: "🧊",
     title: "Party-krafter: Sabotera varje match!",
-    body: "På VARJE matchsida finns ett Party-avsnitt längst ner. Använd Sabotage 🧊 för att nolla en rivals korrekt gissning — deras poäng för den matchen försvinner. Använd Punto Bandito 🦊 för att stjäla poäng från rundens ledare. Du behöver inte gissa rätt — det räcker med sabotage!",
+    body: "På VARJE matchsida finns ett 🔥 Party Track-avsnitt längst ner. När matchen låser ser du vad varje spelare har gissat — klicka 🧊 Sabotera bredvid en rival för att nolla deras rätta gissning. Aktivera 🦊 Punto Bandito för att stjäla 200p från ligaledaren. Du behöver inte gissa ett enda matchresultat för att sabotera!",
     accent: "text-rose-400",
     tag: "🔥 Party Track",
   },

@@ -168,10 +168,9 @@ export default function DevPage() {
           <p className="font-bold text-amber-300 text-sm">⚠️ Kör dessa migrationer FÖRST i Supabase SQL Editor</p>
 
           <div className="space-y-1">
-            <p className="text-amber-400 font-semibold">1. Admin-tabeller — migration 005_admin.sql</p>
+            <p className="text-amber-400 font-semibold">1. Admin — migration 005_admin.sql</p>
             <code className="block font-mono text-[10px] bg-pitch-dark/70 px-3 py-2 rounded text-amber-100 leading-relaxed whitespace-pre">
-              {`-- Krävs för: demo-utfall + admin-panel + yellow_card_count
--- Kör hela filen: supabase/migrations/005_admin.sql`}
+              {`-- Kör hela filen: supabase/migrations/005_admin.sql`}
             </code>
           </div>
 
@@ -180,6 +179,22 @@ export default function DevPage() {
             <code className="block font-mono text-[10px] bg-pitch-dark/70 px-3 py-2 rounded text-amber-100 leading-relaxed whitespace-pre">
               {`ALTER TYPE powerup_type ADD VALUE IF NOT EXISTS 'sabotage';
 ALTER TYPE powerup_type ADD VALUE IF NOT EXISTS 'punto_bandito';`}
+            </code>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-amber-400 font-semibold">3. Party actions — migration 007_party_actions.sql</p>
+            <code className="block font-mono text-[10px] bg-pitch-dark/70 px-3 py-2 rounded text-amber-100 leading-relaxed whitespace-pre">
+              {`-- Kör hela filen: supabase/migrations/007_party_actions.sql
+-- Krävs för: Sabotage + Punto Bandito mot rivaler per match`}
+            </code>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-amber-400 font-semibold">4. Seeda fixtures — supabase/seeds/wc2026_group_stage.sql</p>
+            <code className="block font-mono text-[10px] bg-pitch-dark/70 px-3 py-2 rounded text-amber-100 leading-relaxed whitespace-pre">
+              {`-- Kör hela filen: supabase/seeds/wc2026_group_stage.sql
+-- Sätter in alla 72 gruppspelsmatcher — idempotent (kan köras igen)`}
             </code>
           </div>
 
@@ -317,48 +332,81 @@ ALTER TYPE powerup_type ADD VALUE IF NOT EXISTS 'punto_bandito';`}
           <h2 className="font-bebas text-xl text-gold tracking-widest">
             🎮 FULL SIMULATION WALKTHROUGH
           </h2>
-          <ol className="space-y-2 text-xs text-green-400 list-decimal list-inside leading-relaxed">
-            <li><strong className="text-white">Seeda matcher</strong> — klicka Seeda alla demo-matcher ovan</li>
-            <li><strong className="text-white">Seeda utfall</strong> — klicka Seeda demo-utfall ovan</li>
-            <li><strong className="text-white">Res till 1 juni</strong> — Tidsmaskin: 1 juni — Gissningarna öppnar</li>
-            <li><strong className="text-white">Lägg gissningar</strong> → <a href="/bets" className="text-violet-400 underline">/bets</a> — Track A + Track B, testa power-ups</li>
-            <li><strong className="text-white">Res till 15 juni</strong> — Gruppspelet pågår, resultat visas</li>
-            <li><strong className="text-white">Poängsätt match-spel</strong> → <a href="/admin" className="text-green-400 underline">/admin</a> — klicka Poängsätt match-spel</li>
-            <li><strong className="text-white">Res till 8 juli</strong> — Joker + Party Krafter aktiveras!</li>
-            <li><strong className="text-white">Fyll på krafter</strong> — Fyll på ALLA krafter ovan. Testa Joker: <a href="/dashboard/joker" className="text-purple-400 underline">/dashboard/joker</a></li>
-            <li><strong className="text-white">Slutföra finalen</strong> — klicka VM-FINALEN slutar ovan</li>
-            <li><strong className="text-white">Poängsätt allt</strong> → <a href="/admin" className="text-green-400 underline">/admin</a> — Poängsätt turnering/kaos → ligatabell klar!</li>
-            <li><strong className="text-white">Res till 19 juli</strong> → <a href="/dashboard" className="text-gold underline">/dashboard</a> — Vem vann VM Soccer Sucker?</li>
+          <p className="text-green-600 text-[10px]">
+            Simulerar hela spelupplevelsen från 1 juni till 19 juli — Fan Track + Party Track.
+          </p>
+          <ol className="space-y-2.5 text-xs text-green-400 list-decimal list-inside leading-relaxed">
+            <li>
+              <strong className="text-white">Seeda 72 matcher</strong>{" "}
+              — klicka <em>Seeda ALLA 72 gruppspelsmatcher</em> ovan
+            </li>
+            <li>
+              <strong className="text-white">Seeda demo-matcher + utfall</strong>{" "}
+              — klicka <em>Seeda demo-matcher</em> + <em>Seeda demo-utfall</em> (för knockout-fasen)
+            </li>
+            <li>
+              <strong className="text-white">Fyll på krafter</strong>{" "}
+              — klicka <em>Fyll på ALLA krafter</em> (inkl. 🧊 Sabotage + 🦊 Punto Bandito)
+            </li>
+            <li>
+              <strong className="text-white">Res till 1 juni</strong>{" "}
+              — Tidsmaskin: &ldquo;1 juni — Gissningarna öppnar&rdquo;
+            </li>
+            <li>
+              <strong className="text-white">Lägg Fan Track-gissningar</strong>{" "}
+              → <a href="/bets/turnering" className="text-blue-400 underline">/bets/turnering</a>{" "}
+              och <a href="/bets/match" className="text-violet-400 underline">/bets/match</a>{" "}
+              — alla 72 matcher öppna, inga låsta
+            </li>
+            <li>
+              <strong className="text-white">Lägg Kaos-gissningar</strong>{" "}
+              → <a href="/bets/kaos" className="text-rose-400 underline">/bets/kaos</a>{" "}
+              — 6 JA/NEJ scenarion
+            </li>
+            <li>
+              <strong className="text-white">Testa Party Track per match</strong>{" "}
+              — gå till en matchsida, skrolla till 🔥 Party Track-sektionen längst ner.
+              Före lock: aktivera 🦊 Punto Bandito. Res sedan till{" "}
+              <em>&ldquo;11 juni 17:01 — Precis låst&rdquo;</em>{" "}
+              och revisita matchen — nu ser du spelarnas val och 🧊 Sabotera-knappar visas
+            </li>
+            <li>
+              <strong className="text-white">Res till 15 juni</strong>{" "}
+              — gruppspelet pågår, demo-matchresultat visas
+            </li>
+            <li>
+              <strong className="text-white">Poängsätt match-spel</strong>{" "}
+              → <a href="/admin" className="text-green-400 underline">/admin</a>{" "}
+              — klicka &ldquo;Poängsätt match-spel&rdquo; — Sabotage + Punto Bandito löses samtidigt
+            </li>
+            <li>
+              <strong className="text-white">Res till 8 juli</strong>{" "}
+              — Joker aktiveras på dashboarden
+            </li>
+            <li>
+              <strong className="text-white">Slutföra finalen</strong>{" "}
+              — klicka <em>VM-FINALEN slutar</em> ovan
+            </li>
+            <li>
+              <strong className="text-white">Poängsätt allt</strong>{" "}
+              → <a href="/admin" className="text-green-400 underline">/admin</a>{" "}
+              — &ldquo;Poängsätt turnering/kaos&rdquo; → ligatabell klar!
+            </li>
+            <li>
+              <strong className="text-white">Res till 19 juli</strong>{" "}
+              → <a href="/dashboard" className="text-gold underline">/dashboard</a>{" "}
+              — vem vann VM Soccer Sucker?
+            </li>
           </ol>
+
+          <div className="rounded-lg border border-green-600/30 bg-green-900/10 p-3 text-[10px] text-green-400 space-y-1">
+            <p className="font-bold text-green-300">💡 Hur Party Track-sektionen beter sig per fas</p>
+            <p>🟢 <strong>Öppen match (före lock)</strong>: visar spelarantal + Punto Bandito-knapp</p>
+            <p>🔒 <strong>Låst match (15 min före kick-off)</strong>: visar alla spelares val + 🧊 Sabotera-knappar</p>
+            <p>⚠️ <strong>Du saboterades</strong>: varningsruta visas på din matchsida om du är målad</p>
+            <p>✅ <strong>Löst vid bedömning</strong>: admin /admin Poängsätt match → partykrafter processas automatiskt</p>
+          </div>
         </section>
-
-        {/* DB requirements */}
-        <div className="rounded-xl border border-amber-500/40 bg-amber-900/15 p-4 text-xs text-amber-200 space-y-3">
-          <p className="font-bold text-amber-300 text-sm">⚠️ Kör dessa migrationer i Supabase SQL Editor</p>
-
-          <div className="space-y-1">
-            <p className="text-amber-400 font-semibold">1. Admin-tabeller (migration 005) — krävs för demo-utfall + admin-panel</p>
-            <code className="block font-mono text-[10px] bg-pitch-dark/70 px-3 py-2 rounded text-amber-100 leading-relaxed whitespace-pre">
-              {`-- Kör hela filen: supabase/migrations/005_admin.sql
--- Lägger till: admin_outcomes, yellow_card_count, admin_locked`}
-            </code>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-amber-400 font-semibold">2. Track B power-ups (migration 006) — krävs för sabotage/punto_bandito</p>
-            <code className="block font-mono text-[10px] bg-pitch-dark/70 px-3 py-2 rounded text-amber-100 leading-relaxed whitespace-pre">
-              {`ALTER TYPE powerup_type ADD VALUE IF NOT EXISTS 'sabotage';
-ALTER TYPE powerup_type ADD VALUE IF NOT EXISTS 'punto_bandito';`}
-            </code>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-amber-400 font-semibold">3. Schema cache — kör efter varje migration</p>
-            <code className="block font-mono text-[10px] bg-pitch-dark/70 px-3 py-2 rounded text-amber-100 leading-relaxed">
-              Supabase Dashboard → Project Settings → API → Reload schema cache
-            </code>
-          </div>
-        </div>
 
       </div>
     </div>

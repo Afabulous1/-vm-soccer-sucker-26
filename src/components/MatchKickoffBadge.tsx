@@ -13,14 +13,20 @@ function getLeft(target: Date, offset: number) {
 }
 
 export default function MatchKickoffBadge({ kickoffAt }: { kickoffAt: string }) {
-  const target  = new Date(kickoffAt);
-  const offset  = useMemo(() => getSimOffsetMs(), []);
-  const [left, setLeft] = useState(() => getLeft(target, offset));
+  // Betting closes 15 min before kickoff — count down to that, not to kickoff itself
+  const lockTarget = useMemo(() => {
+    const t = new Date(kickoffAt);
+    t.setMinutes(t.getMinutes() - 15);
+    return t;
+  }, [kickoffAt]);
+
+  const offset = useMemo(() => getSimOffsetMs(), []);
+  const [left, setLeft] = useState(() => getLeft(lockTarget, offset));
 
   useEffect(() => {
-    const id = setInterval(() => setLeft(getLeft(target, offset)), 1_000);
+    const id = setInterval(() => setLeft(getLeft(lockTarget, offset)), 1_000);
     return () => clearInterval(id);
-  }, [target, offset]);
+  }, [lockTarget, offset]);
 
   if (left.total <= 0) {
     return <span className="text-amber-400 text-xs font-semibold">🔒 Låst</span>;
@@ -33,10 +39,10 @@ export default function MatchKickoffBadge({ kickoffAt }: { kickoffAt: string }) 
   const label = isCritical
     ? `⏰ ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
     : isUrgent
-    ? `⚡ ${hours}t ${String(minutes).padStart(2, "0")}m`
+    ? `⚡ Låser ${hours}t ${String(minutes).padStart(2, "0")}m`
     : days > 0
-    ? `🕐 ${days}d ${hours}t`
-    : `🕐 ${hours}t ${String(minutes).padStart(2, "0")}m`;
+    ? `🟢 ${days}d ${hours}t`
+    : `🟢 ${hours}t ${String(minutes).padStart(2, "0")}m`;
 
   return (
     <span
@@ -45,7 +51,7 @@ export default function MatchKickoffBadge({ kickoffAt }: { kickoffAt: string }) 
           ? "text-red-400 animate-pulse"
           : isUrgent
           ? "text-amber-400"
-          : "text-violet-400"
+          : "text-green-500"
       }`}
     >
       {label}

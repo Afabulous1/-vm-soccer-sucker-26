@@ -36,11 +36,14 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
   const kickoffDate = new Date(match.kickoff_at);
   const lockDate = new Date(kickoffDate.getTime() - 15 * 60 * 1000);
   const now = await getNowServer();
-  const isLocked = now >= lockDate;
+  // Lock 15 min before kickoff OR if match already finished
+  const isLocked = now >= lockDate || match.status === "finished";
 
   const [existingBets, partyData] = await Promise.all([
     getMatchBets(id),
-    getMatchPartyData(id, isLocked),
+    getMatchPartyData(id, isLocked).catch(() => ({
+      players: [], myActions: [], inventory: { sabotage: 0, puntoBandito: 0 }, incomingSabotages: 0,
+    })),
   ]);
 
   return (
