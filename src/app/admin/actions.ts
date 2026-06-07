@@ -549,6 +549,32 @@ export async function scoreTournamentKaos(): Promise<{ ok: boolean; scored: numb
   return { ok: true, scored: totalScored, log };
 }
 
+export async function grantKnockoutPowerups(): Promise<{ ok: boolean; count: number; log: string[] }> {
+  const admin = getAdmin();
+  const log: string[] = [];
+
+  const { data: rows, error } = await admin
+    .from("user_powerups")
+    .select("user_id, powerup_type, quantity")
+    .in("powerup_type", ["sabotage", "punto_bandito"]);
+
+  if (error) return { ok: false, count: 0, log: [`[ERROR] ${error.message}`] };
+
+  const updates = (rows ?? []).map((r: { user_id: string; powerup_type: string; quantity: number }) =>
+    admin
+      .from("user_powerups")
+      .update({ quantity: r.quantity + 5, updated_at: new Date().toISOString() })
+      .eq("user_id", r.user_id)
+      .eq("powerup_type", r.powerup_type)
+  );
+
+  await Promise.all(updates);
+
+  const userCount = new Set((rows ?? []).map((r: { user_id: string }) => r.user_id)).size;
+  log.push(`[OK] +5 sabotage och +5 punto_bandito beviljat till ${userCount} spelare.`);
+  return { ok: true, count: userCount, log };
+}
+
 export async function overrideMatch(
   matchId: string,
   data: {

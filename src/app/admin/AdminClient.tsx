@@ -9,6 +9,7 @@ import {
   scoreMatchBets,
   scoreTournamentKaos,
   overrideMatch,
+  grantKnockoutPowerups,
 } from "./actions";
 import type { AdminMatch, AdminOutcome } from "./page";
 
@@ -755,9 +756,11 @@ export default function AdminClient({
   const [matchLog, setMatchLog] = useState<string[]>([]);
   const [tourLog, setTourLog] = useState<string[]>([]);
   const [autoLog, setAutoLog] = useState<string[]>([]);
+  const [knockoutLog, setKnockoutLog] = useState<string[]>([]);
   const [matchPending, startMatchTransition] = useTransition();
   const [tourPending, startTourTransition] = useTransition();
   const [autoPending, startAutoTransition] = useTransition();
+  const [knockoutPending, startKnockoutTransition] = useTransition();
   const [matchesOpen, setMatchesOpen] = useState(false);
 
   const outcomeMap = new Map<string, AdminOutcome>();
@@ -890,6 +893,32 @@ export default function AdminClient({
             : "AUTO-BERÄKNA FRÅN MATCHER (vm_winner, finalists, total_goals, most_red_cards, sweden_final)"}
         </button>
         <LogOutput lines={autoLog} />
+      </section>
+
+      {/* ── Party Powers ── */}
+      <section className="space-y-3">
+        <h2 className="font-bebas text-2xl text-rose-400 tracking-widest">
+          PARTY POWERS — KNOCKOUT-BOOST
+        </h2>
+        <div className="rounded-xl border border-rose-500/30 bg-rose-900/10 p-4 space-y-3">
+          <p className="text-rose-300/70 text-xs">
+            Alla spelare startar med <strong className="text-white">10 sabotage + 10 punto_bandito</strong> för gruppspelet.
+            Klicka nedan när knockout-fasen börjar för att ge alla <strong className="text-white">+5 av varje</strong>.
+          </p>
+          <button
+            onClick={() =>
+              startKnockoutTransition(async () => {
+                const r = await grantKnockoutPowerups();
+                setKnockoutLog(r.log);
+              })
+            }
+            disabled={knockoutPending}
+            className="w-full bg-rose-700 hover:bg-rose-600 disabled:opacity-50 text-white font-bebas text-lg tracking-widest py-3 rounded-xl transition-all active:scale-95"
+          >
+            {knockoutPending ? "BEVILJAR..." : "🔥 BEVILJA KNOCKOUT-POWERS (+5 TILL ALLA)"}
+          </button>
+          <LogOutput lines={knockoutLog} />
+        </div>
       </section>
 
       {/* ── Match Override ── */}
