@@ -5,6 +5,8 @@ import { getNowServer } from "@/lib/now";
 import { getFlag } from "@/lib/flags";
 import CountdownTimer from "@/components/CountdownTimer";
 import MatchBetForm from "./MatchBetForm";
+import PartyMatchSection from "./PartyMatchSection";
+import { getMatchPartyData } from "./party-actions";
 
 function formatKickoff(iso: string) {
   return new Date(iso).toLocaleDateString("sv-SE", {
@@ -31,11 +33,15 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
 
   if (!match) notFound();
 
-  const existingBets = await getMatchBets(id);
   const kickoffDate = new Date(match.kickoff_at);
-  // Lock 15 minutes before kickoff so late bets don't sneak in
   const lockDate = new Date(kickoffDate.getTime() - 15 * 60 * 1000);
-  const isLocked = (await getNowServer()) >= lockDate;
+  const now = await getNowServer();
+  const isLocked = now >= lockDate;
+
+  const [existingBets, partyData] = await Promise.all([
+    getMatchBets(id),
+    getMatchPartyData(id, isLocked),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -83,6 +89,16 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
         isLocked={isLocked}
         lockTime={lockDate.toISOString()}
         matchStage={match.stage}
+      />
+
+      <PartyMatchSection
+        matchId={id}
+        isLocked={isLocked}
+        matchStatus={match.status}
+        players={partyData.players}
+        myActions={partyData.myActions}
+        inventory={partyData.inventory}
+        incomingSabotages={partyData.incomingSabotages}
       />
     </div>
   );

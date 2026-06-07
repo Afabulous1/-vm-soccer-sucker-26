@@ -352,8 +352,92 @@ export async function scoreMatchBets(): Promise<{ ok: boolean; scored: number; l
   }
 
   log.push(`Totalt poängsatt: ${totalScored} spel.`);
+
+  // Party actions resolved after bets are scored so sabotage targets already have points_awarded set
+  for (const match of finishedMatches) {
+    await resolvePartyActions(admin, match.id, log);
+  }
+
   await rebuildLeaderboard(admin, log);
   return { ok: true, scored: totalScored, log };
+}
+
+async function resolvePartyActions(
+  admin: ReturnType<typeof getAdmin>,
+  matchId: string,
+  log: string[],
+): Promise<void> {
+  const { data: actions, error } = await admin
+    .from("party_actions")
+    .select("id, actor_id, target_id, action_type")
+    .eq("match_id", matchId)
+    .eq("resolved", false);
+
+  if (error) { log.push(`  [WARN] party_actions: ${error.message}`); return; }
+  if (!actions || actions.length === 0) return;
+
+  const sabotages = (actions as Array<{ id: string; actor_id: string; target_id: string | null; action_type: string }>)
+    .filter((a) => a.action_type === "sabotage" && a.target_id);
+  const puntos = (actions as Array<{ id: string; actor_id: string; target_id: string | null; action_type: string }>)
+    .filter((a) => a.action_type === "punto_bandito");
+
+  // ── Sabotage: zero out target's correct match bets ──────────────────
+  for (const sab of sabotages) {
+    const { data: targetBets } = await admin
+      .from("bets")
+      .select("id, points_awarded")
+      .eq("match_id", matchId)
+      .eq("user_id", sab.target_id!)
+      .eq("bet_category", "match")
+      .eq("is_correct", true)
+      .gt("points_awarded", 0);
+
+    let stolen = 0;
+    for (const tb of targetBets ?? []) {
+      await admin.from("bets").update({ points_awarded: 0 }).eq("id", tb.id);
+      stolen += tb.points_awarded ?? 0;
+    }
+
+    await admin.from("party_actions").update({ resolved: true, points_effect: stolen }).eq("id", sab.id);
+    if (stolen > 0) log.push(`  [PARTY] Sabotage: target ${sab.target_id} förlorade ${stolen}p`);
+    else log.push(`  [PARTY] Sabotage mot ${sab.target_id}: inget att nolla (inga rätta gissningar)`);
+  }
+
+  // ── Punto Bandito: steal 200p from current leader ───────────────────
+  if (puntos.length > 0) {
+    const { data: leaderboard } = await admin
+      .from("leaderboard_cache")
+      .select("user_id, points_total")
+      .order("rank", { ascending: true })
+      .limit(5);
+
+    for (const pb of puntos) {
+      const leader = (leaderboard ?? []).find(
+        (r: { user_id: string; points_total: number }) => r.user_id !== pb.actor_id,
+      ) as { user_id: string; points_total: number } | undefined;
+
+      if (!leader) {
+        await admin.from("party_actions").update({ resolved: true, points_effect: 0 }).eq("id", pb.id);
+        log.push(`  [PARTY] Punto Bandito: ingen ledare att stjäla ifrån`);
+        continue;
+      }
+
+      const stolen = 200;
+      await admin.from("profiles")
+        .update({ points_total: Math.max(0, leader.points_total - stolen) })
+        .eq("user_id", leader.user_id);
+
+      const { data: actorProfile } = await admin.from("profiles").select("points_total").eq("user_id", pb.actor_id).single() as { data: { points_total: number } | null };
+      if (actorProfile) {
+        await admin.from("profiles")
+          .update({ points_total: (actorProfile.points_total ?? 0) + stolen })
+          .eq("user_id", pb.actor_id);
+      }
+
+      await admin.from("party_actions").update({ resolved: true, points_effect: stolen }).eq("id", pb.id);
+      log.push(`  [PARTY] Punto Bandito: ${pb.actor_id} stjäl ${stolen}p från ledaren ${leader.user_id}`);
+    }
+  }
 }
 
 const REQUIRED_OUTCOME_TYPES = [

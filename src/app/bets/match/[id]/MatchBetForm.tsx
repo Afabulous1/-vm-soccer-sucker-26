@@ -350,63 +350,6 @@ export default function MatchBetForm({
         </>
       )}
 
-      {/* ── Party Track section ─────────────────────────────────────────── */}
-      <div className="rounded-2xl border-2 border-rose-500/40 bg-gradient-to-br from-rose-900/20 to-orange-900/10 p-5 space-y-4 mt-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400 bg-rose-900/40 border border-rose-500/30 px-2.5 py-1 rounded-full">
-            🔥 Party Track
-          </span>
-          <span className="text-rose-300/50 text-xs">— inget fotbollsintresse krävs</span>
-        </div>
-
-        <p className="text-rose-200/80 text-sm leading-relaxed">
-          Bryr du dig inte om matchen? Det gör inget. Sabotera dina kompisar istället.
-          Använd dina Party-krafter på den här matchen — du behöver inte lägga en enda matchgissning för att ställa till det för andra.
-        </p>
-
-        <div className="space-y-3">
-          {/* Sabotage */}
-          <div className="rounded-xl border border-rose-500/30 bg-pitch-dark/60 p-4 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🧊</span>
-              <div>
-                <p className="text-white font-bold text-sm">Sabotage</p>
-                <p className="text-rose-300/70 text-xs">Nolla en rivals korrekt matchgissning — deras poäng för den här matchen försvinner</p>
-              </div>
-            </div>
-            <p className="text-rose-400/50 text-[10px] pl-9">
-              Välj Sabotage som din Power-up i matchgissningen ovan, eller i Fan Track-korten.
-              Aktiveras om du gissar rätt — eller koppla den till en gissning för maximal skada.
-            </p>
-          </div>
-
-          {/* Punto Bandito */}
-          <div className="rounded-xl border border-orange-500/30 bg-pitch-dark/60 p-4 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🦊</span>
-              <div>
-                <p className="text-white font-bold text-sm">Punto Bandito</p>
-                <p className="text-orange-300/70 text-xs">Stjäl poängen från den som leder ligan i den här rundan</p>
-              </div>
-            </div>
-            <p className="text-orange-400/50 text-[10px] pl-9">
-              Välj Punto Bandito som din Power-up i en matchgissning ovan.
-              Perfekt för att hålla nere ledaren när det hettar till.
-            </p>
-          </div>
-        </div>
-
-        {!isLocked && (
-          <p className="text-rose-400/60 text-xs text-center italic">
-            Party-krafter väljs i Power-up-sektionen på varje gissning ovan ↑
-          </p>
-        )}
-        {isLocked && (
-          <p className="text-amber-400/60 text-xs text-center">
-            🔒 Matchen är låst — inga fler Party-drag på den här matchen.
-          </p>
-        )}
-      </div>
     </div>
   );
 }
