@@ -3,7 +3,7 @@ import Link from "next/link";
 const FEATURES = [
   { emoji: "🏆", text: "Turnerings­gissningar — vem vinner VM?" },
   { emoji: "⚽", text: "Matchgissningar — varje match, varje mål" },
-  { emoji: "🔥", text: "Kaosgissningar — 10 000p om du har rätt" },
+  { emoji: "🔥", text: "Kaosgissningar — JA rätt = 10 000p · NEJ rätt = 500p" },
   { emoji: "✨", text: "Superkrafter — dubbla dina poäng" },
   { emoji: "🏟️", text: "Live ligatabell med dina kompisar" },
 ];
@@ -65,8 +65,8 @@ export default function Home() {
 
         {/* Dates */}
         <div className="flex justify-center gap-6 text-xs text-green-700">
-          <span>📅 Gissningar öppnar <strong className="text-green-500">1 juni</strong></span>
-          <span>🔒 Låser <strong className="text-green-500">11 juni</strong></span>
+          <span>⚽ Matchgissningar <strong className="text-green-500">öppna nu</strong></span>
+          <span>🔒 Låser <strong className="text-green-500">11 juni kl 19:00</strong></span>
         </div>
       </div>
     </div>
