@@ -1,7 +1,7 @@
 import type { BetCategory } from "@/types/database";
 
-// Betting window: June 8 → June 11
-export const BETTING_OPENS  = new Date("2026-06-08T00:00:00+02:00");
+// Betting window: June 1 → June 11 (CEST = UTC+2)
+export const BETTING_OPENS  = new Date("2026-06-01T00:00:00+02:00");
 // WC 2026 opens June 11, first match 17:00 UTC
 export const TOURNAMENT_LOCK = new Date("2026-06-11T17:00:00Z");
 

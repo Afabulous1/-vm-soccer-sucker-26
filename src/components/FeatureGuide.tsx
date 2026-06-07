@@ -2,56 +2,78 @@
 
 import { useState, useEffect } from "react";
 
-const STORAGE_KEY = "vm26_guide_v1";
+// Bump version when guide content changes — forces all users to see it again
+const STORAGE_KEY = "vm26_guide_v3";
 
 const STEPS = [
   {
     emoji: "⚽",
-    title: "Välkommen till VM Soccer Sucker 26!",
-    body: "Gissa VM 2026 med dina kompisar — för ära och heder! Ingen e-post, inga stakes, bara ren fotbollsglädje. Låt oss gå igenom hur spelet funkar.",
+    title: "Välkommen till VM Soccer Sucker!",
+    body: "Gissa VM 2026 med dina kompisar — för ära och heder. Inga pengar, inga stakes. Den med flest poäng den 19 juli vinner. Det finns TVÅ sätt att spela — välj ett, välj båda!",
     accent: "text-gold",
-  },
-  {
-    emoji: "📅",
-    title: "Gissningarna öppnar 1 juni",
-    body: "Du kan inte lägga gissningar förrän den 1 juni 2026. Från och med då är det full fart — och du har TIO dagar på dig innan turneringen låser.",
-    accent: "text-green-400",
-  },
-  {
-    emoji: "🏆",
-    title: "Turneringsgissningar låser 11 juni",
-    body: "Gissa vinnaren, finalisterna, skyttekungen, dödsgruppen och mer. OBS: dessa låser permanent 11 juni kl 17:00 UTC — det är dag ETT av turneringen. Du kan inte ändra dem efteråt.",
-    accent: "text-blue-400",
-  },
-  {
-    emoji: "🔥",
-    title: "Kaosgissningar låser också 11 juni",
-    body: "De vildaste gissningarna: en målvakt gör mål? Sverige till finalen? 10 000p styck om du har rätt. Låser exakt samtidigt som turneringsgissningarna — 11 juni kl 17:00 UTC.",
-    accent: "text-rose-400",
+    tag: null,
   },
   {
     emoji: "⚽",
-    title: "Matchgissningar — öppna hela turneringen",
-    body: "Varje match har egna gissningar: rätt sida (10p), exakt resultat (50p), första målskytt (30p) och mer. Dessa låser INTE den 11 juni — de låser individuellt vid varje matchs avspark. Du kan gissa matcher hela vägen till finalen!",
+    title: "Laget: Fotbollsfansen",
+    body: "Vet du vilka lag som är bra? Kan du ana vem som vinner? Då är Fan Track för dig. Du gissar matchresultat och turneringsutfall och tjänar poäng på fotbollskunskap. Ju mer du kan, desto bättre — men en chansning kan också ge jackpot.",
     accent: "text-violet-400",
+    tag: "⚽ Fan Track",
+  },
+  {
+    emoji: "🏆",
+    title: "Fan Track: Turneringsgissningar",
+    body: "6 gissningar om hela VM: vem vinner, vilka är i finalen, vem är skyttekung, vilken är dödsgruppen. Dessa låser DEN 11 JUNI kl 19:00 svensk tid — du kan inte ändra dem efteråt. Lägg dem medan du kan!",
+    accent: "text-blue-400",
+    tag: "⚽ Fan Track",
+  },
+  {
+    emoji: "⚽",
+    title: "Fan Track: Matchgissningar",
+    body: "Alla 72 gruppspelsmatcher finns tillgängliga nu — plus knockout-matcher. Gissa 1-X-2 och totalt antal mål. Varje match låser 15 minuter innan avspark. Du kan gissa hela vägen till finalen!",
+    accent: "text-violet-400",
+    tag: "⚽ Fan Track",
+  },
+  {
+    emoji: "🔥",
+    title: "Laget: Party-spelaren",
+    body: "Noll koll på fotboll? PERFEKT. Party Track är gjort för dig. Inga rätt eller fel svar du behöver kunna — bara JA eller NEJ på galna scenarion. Och sen saboterar du dina kompisar med Party-krafter. Det enda du behöver är instinkter och skadeglädje.",
+    accent: "text-rose-400",
+    tag: "🔥 Party Track",
+  },
+  {
+    emoji: "🎲",
+    title: "Party Track: Kaosgissningar",
+    body: "6 vilda JA/NEJ-frågor: Gör en målvakt mål? Åker en tränare ut? Sverige till finalen? 10 000 poäng PER rätt svar. Dessa låser 11 juni kl 19:00. Det är allt — välj JA eller NEJ och hoppas på kaos.",
+    accent: "text-rose-400",
+    tag: "🔥 Party Track",
+  },
+  {
+    emoji: "🧊",
+    title: "Party-krafter: Sabotera varje match!",
+    body: "På VARJE matchsida finns ett Party-avsnitt längst ner. Använd Sabotage 🧊 för att nolla en rivals korrekt gissning — deras poäng för den matchen försvinner. Använd Punto Bandito 🦊 för att stjäla poäng från rundens ledare. Du behöver inte gissa rätt — det räcker med sabotage!",
+    accent: "text-rose-400",
+    tag: "🔥 Party Track",
   },
   {
     emoji: "✨",
-    title: "Superkrafter — bara på matcher!",
-    body: "Du har 5 superkrafter: Dubbel-eller-inget (2× eller 0), Taktikgeniet (50% om rätt sida), 6-Poängaren (+600p bonus), Försäkringen (50% tillbaka vid fel), Tidsmaskinen (ändra gissning!). Används BARA på matchgissningar.",
+    title: "Fan-krafter: Power-ups på matcher",
+    body: "Fan Track-spelare har kraftiga power-ups: Dubbel-eller-inget (2× eller 0), Taktikgeniet (50% om rätt sida), Sexpoängaren (+600p bonus), Försäkringen (50% tillbaka vid fel), Tidsmaskinen (ändra gissning efter avspark!). Välj kraft när du lägger din matchgissning.",
     accent: "text-gold",
+    tag: "⚽ Fan Track",
   },
   {
     emoji: "🚀",
-    title: "Redo att slå kompisarna?",
-    body: "Gissningarna öppnar 1 juni — håll koll på ligatabellen och skräpsnacket i dashboarden. Musiken hjälper dig komma i VM-stämning. Lycka till!",
+    title: "Dags att slå dina kompisar!",
+    body: "Gissningarna är öppna NU — alla matcher finns tillgängliga. Lägg turneringsgissningar och kaosgissningar INNAN 11 juni kl 19:00 (svensk tid). Matchgissningar kan du lägga löpande hela turneringen. Lycka till — och kom ihåg: sabotera dina bästa vänner utan dåligt samvete.",
     accent: "text-green-400",
+    tag: null,
   },
 ];
 
 export default function FeatureGuide() {
   const [visible, setVisible] = useState(false);
-  const [step, setStep]       = useState(0);
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
     if (!localStorage.getItem(STORAGE_KEY)) setVisible(true);
@@ -66,6 +88,10 @@ export default function FeatureGuide() {
 
   const cur    = STEPS[step];
   const isLast = step === STEPS.length - 1;
+
+  const tagColor =
+    cur.tag?.startsWith("⚽") ? "bg-violet-900/60 text-violet-300 border-violet-500/40" :
+    cur.tag?.startsWith("🔥") ? "bg-rose-900/60 text-rose-300 border-rose-500/40" : null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
@@ -93,6 +119,11 @@ export default function FeatureGuide() {
           </div>
 
           <div className="text-center space-y-3 py-2">
+            {cur.tag && tagColor && (
+              <span className={`inline-block text-[10px] font-bold uppercase tracking-widest border px-3 py-1 rounded-full ${tagColor}`}>
+                {cur.tag}
+              </span>
+            )}
             <div className="text-6xl">{cur.emoji}</div>
             <h2 className={`font-bebas text-3xl tracking-widest leading-tight ${cur.accent}`}>
               {cur.title}

@@ -130,7 +130,7 @@ export default async function BetsPage() {
       <div className="rounded-xl border border-pitch-light/30 bg-pitch/40 p-4 text-xs text-green-500 space-y-1.5">
         <p className="font-semibold text-green-400">Hur fungerar det?</p>
         <p>🔒 Turneringsgissningar och Party Predictions låser när VM startar 11 juni kl 19:00.</p>
-        <p>⚽ Matchgissningar låser 15 min innan varje match — alla matcher finns tillgängliga att gissa på från start.</p>
+        <p>⚽ Matchgissningar låser 15 min innan varje match — alla 72 matcher finns tillgängliga att gissa på från 1 juni.</p>
         <p>⚡ Power-ups och sköldar används när du lägger en matchgissning.</p>
         <p>🔥 Du kan tillhöra båda lagen — gissa på allt för maxpoäng!</p>
       </div>

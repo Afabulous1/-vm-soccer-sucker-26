@@ -240,15 +240,15 @@ export default async function DashboardPage() {
 
         {/* ── Countdown / status banner ─────────────────────────────────── */}
         {!bettingOpen ? (
-          /* Pre June 8 — big countdown */
+          /* Pre June 1 — big countdown */
           <div className="rounded-3xl border border-gold/20 bg-gradient-to-br from-pitch-dark/90 to-pitch/60 p-6 text-center space-y-4 shadow-xl">
             <div>
               <p className="font-bebas text-xl text-green-400 tracking-widest">GISSNINGARNA ÖPPNAR</p>
-              <p className="font-bebas text-4xl text-gold tracking-widest">8 JUNI 2026</p>
+              <p className="font-bebas text-4xl text-gold tracking-widest">1 JUNI 2026</p>
             </div>
             <BigCountdown target={BETTING_OPENS.toISOString()} />
             <p className="text-green-600 text-xs">
-              3 dagar på dig att lägga alla gissningar innan VM börjar 11 juni!
+              10 dagar på dig att lägga alla gissningar — alla 72 matcher finns tillgängliga!
             </p>
           </div>
         ) : !isLocked ? (

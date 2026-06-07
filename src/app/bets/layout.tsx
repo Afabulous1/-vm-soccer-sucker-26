@@ -45,7 +45,7 @@ export default async function BetsLayout({ children }: { children: React.ReactNo
           </div>
 
           <div className="rounded-xl border border-pitch-light/20 bg-pitch/40 p-4 text-xs text-green-500 space-y-1.5 text-left">
-            <p>📅 <strong className="text-green-300">8 juni</strong> — Gissningsfönstret öppnar</p>
+            <p>📅 <strong className="text-green-300">1 juni</strong> — Gissningsfönstret öppnar</p>
             <p>🏆 <strong className="text-green-300">11 juni 17:00 UTC</strong> — Turnering &amp; Kaos låser</p>
             <p>⚽ <strong className="text-green-300">Varje match</strong> — Matchgissningar låser vid avspark</p>
           </div>
