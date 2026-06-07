@@ -92,7 +92,7 @@ export default async function BetsPage() {
           </div>
           <p className="text-rose-200/70 text-sm leading-relaxed">
             Du behöver inte kunna ett skit om fotboll för att vinna här.
-            Gissa på galna scenarion — JA eller NEJ — och skratta dig till 10 000 poäng.
+            Gissa på galna scenarion — JA eller NEJ. JA rätt = 10 000p, NEJ rätt = 500p.
             Sabotage dina kompisar med Party-krafter under turneringen.
           </p>
           <div className="space-y-2">
@@ -104,7 +104,7 @@ export default async function BetsPage() {
                 <span className="text-2xl">🎲</span>
                 <div>
                   <p className="text-white font-bold text-sm">Party Predictions</p>
-                  <p className="text-rose-300/60 text-xs">6 galna scenarion · 10 000p om rätt</p>
+                  <p className="text-rose-300/60 text-xs">6 galna scenarion · <span className="text-green-400 font-semibold">JA=10 000p</span> / <span className="text-rose-400 font-semibold">NEJ=500p</span></p>
                 </div>
               </div>
               <div className="text-right shrink-0">

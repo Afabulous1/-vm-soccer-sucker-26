@@ -179,8 +179,8 @@ export default function KaosForm({ existingBets, isLocked }: Props) {
         </div>
         <p className="text-rose-200/60 text-xs leading-relaxed">
           Du behöver inte kunna fotboll för att vinna här. Välj JA eller NEJ på
-          dessa galna scenarion — 10 000p om du har rätt. Låser vid
-          turneringsstart.
+          dessa galna scenarion. <strong className="text-green-300">JA rätt = 10 000p</strong>{" "}
+          · <strong className="text-rose-300">NEJ rätt = 500p</strong>. Låser vid turneringsstart.
         </p>
         <p className="text-rose-300/50 text-[11px]">
           🧊 <strong>Sabotage</strong> &amp;{" "}
@@ -224,8 +224,10 @@ export default function KaosForm({ existingBets, isLocked }: Props) {
                   {bet.description}
                 </p>
               </div>
-              <span className="shrink-0 text-xs px-2.5 py-1.5 rounded-full bg-rose-500/20 text-rose-300 font-bold tabular-nums ml-2">
-                {bet.points.toLocaleString("sv-SE")}p
+              <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-rose-500/20 text-rose-300 font-bold ml-2 text-center leading-tight">
+                <span className="text-green-300">JA 10 000p</span>
+                <br />
+                <span className="text-rose-300">NEJ 500p</span>
               </span>
             </div>
 

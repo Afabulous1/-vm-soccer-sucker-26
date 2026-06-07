@@ -44,7 +44,7 @@ const STEPS = [
   {
     emoji: "🎲",
     title: "Party Track: Kaosgissningar",
-    body: "6 vilda JA/NEJ-frågor: Gör en målvakt mål? Åker en tränare ut? Sverige till finalen? 10 000 poäng PER rätt svar. Dessa låser 11 juni kl 19:00. Det är allt — välj JA eller NEJ och hoppas på kaos.",
+    body: "6 vilda JA/NEJ-frågor: Gör en målvakt mål? Åker en tränare ut? Sverige till finalen? Svarar du JA och har rätt: 10 000p. Svarar du NEJ och har rätt: 500p. Dessa låser 11 juni kl 19:00. Det är allt — välj JA eller NEJ och hoppas på kaos.",
     accent: "text-rose-400",
     tag: "🔥 Party Track",
   },

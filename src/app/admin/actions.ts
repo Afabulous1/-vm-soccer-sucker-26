@@ -487,7 +487,12 @@ export async function scoreTournamentKaos(): Promise<{ ok: boolean; scored: numb
 
     if (bet.bet_category === "kaos") {
       correct = betValue.answer === outcome.answer;
-      pointsAwarded = correct ? 10000 : 0;
+      // JA correct = 10 000p, NEJ correct = 500p (safer hedge pays less)
+      if (correct) {
+        pointsAwarded = betValue.answer === true ? 10000 : 500;
+      } else {
+        pointsAwarded = 0;
+      }
     } else {
       switch (bet.bet_type) {
         case "vm_winner":
