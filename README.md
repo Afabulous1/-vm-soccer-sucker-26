@@ -1,8 +1,26 @@
 # VM Soccer Sucker 26 ⚽
 
-> Swedish-language World Cup 2026 betting app for friend groups — for glory and bragging rights.
+> Swedish-language World Cup 2026 prediction app for friend groups — for glory and bragging rights.
 
-Friends compete by predicting WC 2026 match results, tournament outcomes, and chaotic wildcards. No money, no ads — just ära och heder.
+Friends compete by predicting WC 2026 results across two tracks: Football Fan (match + tournament bets) and Party Player (wild chaos predictions + sabotage powers). No money, no ads — just ära och heder.
+
+---
+
+## Two Tracks — Pick Your Camp
+
+### ⚽ Fotbollsfansen — Football Fan Track
+For people who follow football and want to prove they know their stuff.
+- **Turneringsgissningar** — VM-vinnare, finalister, skyttekung, dödsgrupp (lock June 11)
+- **Matchgissningar** — 1-X-2 result + total goals per match (lock 15 min before kickoff)
+- All 72 group stage matches + knockout rounds available to bet on from June 8
+
+### 🔥 Party-spelaren — Party Track
+For everyone — zero football knowledge required.
+- **Party Predictions** — 6 crazy yes/no scenarios (goalkeeper scores, 0-3 comeback etc.) — 10 000p each (lock June 11)
+- **Sabotage** 🧊 — freeze a rival's winning bet during the tournament
+- **Punto Bandito** 🦊 — steal points from the current round leader
+
+You can play both tracks for maximum points.
 
 ---
 
@@ -10,17 +28,32 @@ Friends compete by predicting WC 2026 match results, tournament outcomes, and ch
 
 | Area | What you get |
 |------|-------------|
-| **Auth** | Username + password sign-up (no email required). Supabase admin API — users never see a confirmation email. |
-| **Tournament bets** | 6 predictions (winner, finalists, top scorer, death group…). 1 000–5 000 p. Lock June 11. |
-| **Match bets** | Per-match: 1/X/2, exact score, first scorer, yellow cards. 5–50 p. Lock at kickoff. |
-| **Chaos bets** | 6 wild predictions (goalkeeper scores, Sweden to the final…). 10 000 p each. Lock June 11. |
-| **Power-ups** | 5 special abilities (Double-or-Nothing, Tactician, +6-Pointer, Insurance, Time Machine). Match bets only. |
-| **Live data** | Auto-synced from football-data.org twice daily via GitHub Actions (June 10 – July 19). |
-| **Dashboard** | Real-time leaderboard (Total / Week / Streak tabs), recent results, upcoming matches. |
-| **Spelarbänken** | Live group chat wall (Supabase Realtime, updates without page reload). |
-| **Music** | Optional YouTube video/playlist — starts on first page interaction. |
-| **Onboarding** | 7-step feature guide for first-time users. |
-| **Countdowns** | Big flip-clock to June 1 opening, tournament lock countdown, per-match kickoff badges. |
+| **Auth** | Username + password sign-up (no email required) |
+| **Fan Track: Tournament** | 6 predictions · 1 000–5 000 p · lock June 11 |
+| **Fan Track: Match bets** | 1-X-2 + total goals · 100+50 p · lock at kickoff |
+| **Party Track** | 6 wild yes/no predictions · 10 000 p each · lock June 11 |
+| **Party powers** | Sabotage (freeze rival) + Punto Bandito (steal points) |
+| **Power-ups** | 8 abilities total: Double-or-Nothing, Tactician, +6-Pointer, Insurance, Time Machine, Joker, Sabotage, Punto Bandito |
+| **Joker** | Steal any player's match win points — activates at semi-finals |
+| **Taunts** | Random Swedish smack-talk when you make a choice |
+| **Live data** | Auto-synced from football-data.org twice daily via GitHub Actions |
+| **Dashboard** | Leaderboard (Total / Week / Streak), recent results, upcoming matches |
+| **Chat** | Live group chat wall (Spelarbänken) via Supabase Realtime |
+| **Admin panel** | Score bets, set outcomes, override match results at `/admin` |
+| **Simulation console** | Test every feature at `/dev` — time travel, seed matches, grant powers |
+
+---
+
+## Key Dates
+
+| Date | Event |
+|------|-------|
+| **8 June 2026 00:00 CEST** | Betting window opens — all bet forms unlock |
+| **11 June 2026 17:00 UTC** | Tournament & Party Predictions lock permanently |
+| **11 June 2026 onwards** | Match bets lock individually 15 min before each kickoff |
+| **10 June – 19 July** | GitHub Actions syncs data twice daily (06:00 + 18:00 UTC) |
+| **8 July 2026** | Joker card activates (semi-final phase) |
+| **19 July 2026** | WC Final — last scoring run |
 
 ---
 
@@ -37,91 +70,71 @@ Data sync   football-data.org free API → GitHub Actions cron
 
 ## How All the Pieces Fit Together
 
-Four services — each with one job:
-
-### Supabase — your database & auth
-- Stores everything: users, bets, match data, chat messages, leaderboard
-- Handles sign-up and login — no email confirmation because the app uses the admin API directly
-- Realtime subscriptions power live chat (Spelarbänken) without page reloads
-- Row Level Security (RLS) ensures users can only read/edit their own bets
+### Supabase — database & auth
+- Stores everything: users, bets, match data, chat, leaderboard, admin outcomes
+- No email confirmation — uses the admin API directly
+- Realtime subscriptions power live chat without page reloads
+- RLS ensures users can only read/edit their own bets
 
 ### Vercel — hosts the website
-- Builds and serves the Next.js frontend
-- Auto-deploys every time you push to the `main` branch on GitHub
-- Server Actions (sign-up, save bet) run here as serverless functions
-- All your friends reach the app via the Vercel URL (e.g. `vm-soccer-sucker.vercel.app`)
+- Auto-deploys every push to `main`
+- Server Actions run as serverless functions
+- Friends reach the app via the Vercel URL
 
 ### GitHub Actions — scheduled data sync
-- Runs a cron job at 06:00 and 18:00 UTC, every day from June 10 to July 19
-- Fetches match results from football-data.org → writes scores to Supabase
-- Scores all bets and rebuilds the leaderboard after each sync
-- Set it up once, never touch it again
+- Runs at 06:00 and 18:00 UTC, June 10 – July 19
+- Fetches match results → scores bets → rebuilds leaderboard
 
 ### football-data.org — match data source
-- Free API with WC 2026 fixtures, live scores, and player stats
-- Only GitHub Actions calls this API — the frontend never touches it directly
-- Free tier: 10 req/min (sync scripts throttle automatically with a 6-second delay)
+- Free API: 10 req/min, auto-throttled
+- Only GitHub Actions calls it — never the frontend
 
 ---
 
-## Operator Checklist — What to Do and When
+## Operator Checklist
 
-You are the one person who sets this up and keeps it running. Here is exactly what to do and when.
-
-### Before June 1 — Setup (do this once)
-- [ ] Create Supabase project + run `supabase/migrations/001_initial_schema.sql`
-- [ ] Deploy to Vercel + set the 4 environment variables (see setup guide below)
+### Before June 8 — Setup (do this once)
+- [ ] Create Supabase project → run all migrations in order (001–006)
+- [ ] Reload schema cache: Dashboard → Project Settings → API → Reload schema cache
+- [ ] Deploy to Vercel → add the 4 environment variables
 - [ ] Add the 3 GitHub Secrets for Actions
-- [ ] Run `npm run sync:matches` once to populate the fixture list
+- [ ] Go to `/dev` → click "Seeda ALLA 72 gruppspelsmatcher" to seed all fixtures
 - [ ] Share the Vercel URL with your friends
-- [ ] (Optional) Add `NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID` in Vercel for background music
 
-### June 1 — Betting opens automatically
-- No action needed — the app unlocks itself at midnight CEST
-- Friends can now place tournament, chaos, and match bets
+### June 8 — Betting opens automatically
+- No action needed — the app unlocks at midnight CEST
+- Friends can now place all bets (both tracks, all 72 matches visible)
 
-### Around June 6–7 — Squad confirmations
-- Run `npm run sync:players` to refresh player lists for first-scorer bets (squads are usually confirmed ~5 days before the tournament)
-
-### June 11, 17:00 UTC — Tournament day 1, bets lock automatically
-- No action needed — tournament and chaos bets lock themselves
-- Match bets for individual games remain open until each game's kickoff
+### June 11, 17:00 UTC — VM starts, tournament bets lock
+- No action needed — tournament + party bets lock automatically
+- Match bets keep working match-by-match until kickoff
 
 ### June 10 onward — GitHub Actions takes over
-- Automatic from here — runs at 06:00 and 18:00 UTC through July 19
-- If a score looks wrong: run `npm run sync:results` manually
+- Automatic — runs twice daily through July 19
+- If scores look wrong: run `npm run sync:results` manually
 - If leaderboard isn't updating: run `npm run score:bets` manually
 
+### Admin panel (`/admin`)
+- Score match bets after each game
+- Set correct answers for tournament/party bets
+- Override locked match results if needed
+
 ### July 19 — WC Final
-- After the match finishes, verify scores synced correctly
-- Run `npm run score:bets` one last time if needed
-- Reveal the final leaderboard to your friends 🏆
+- Verify final scores synced
+- Run `/admin` → score all remaining bets
+- Reveal the leaderboard 🏆
 
 ---
 
-## Can the GitHub Repository Be Private?
+## Prerequisites
 
-**Yes — keep it private.** All services work with private repos:
-
-| Service | Private repo |
-|---------|-------------|
-| **GitHub Actions** | Free tier: 2 000 min/month. This workflow uses ~120 min/month (2 runs/day × ~1 min). |
-| **Vercel Hobby** | Deploys from private GitHub repos at no cost. |
-| **Supabase** | No connection to GitHub visibility. |
-
-To make it private: GitHub repo → Settings → Danger Zone → Change visibility → Private.
+1. **Supabase** → [supabase.com](https://supabase.com) (free: 1 project, 500 MB)
+2. **football-data.org** → free tier, 10 req/min
+3. **Vercel** → free Hobby tier
 
 ---
 
-## Prerequisites — three free accounts
-
-1. **Supabase** → [supabase.com](https://supabase.com) (free: 1 project, 500 MB DB)
-2. **football-data.org** → [football-data.org/client/register](https://www.football-data.org/client/register) (free: 10 req/min, no daily cap)
-3. **Vercel** → [vercel.com](https://vercel.com) (free Hobby tier, connects to GitHub)
-
----
-
-## End-to-End Setup Guide
+## Setup Guide
 
 ### 1. Clone and install
 
@@ -131,151 +144,113 @@ cd vm-soccer-sucker-26
 npm install
 ```
 
-### 2. Create a Supabase project
+### 2. Supabase — run all migrations
 
-1. [app.supabase.com](https://app.supabase.com) → **New project**
-2. Name it anything, choose **eu-west-1 (Frankfurt)** for best Sweden latency
-3. Wait ~2 min for provisioning
-4. **SQL Editor** → paste and run `supabase/migrations/001_initial_schema.sql`
-5. **Project Settings → API** — copy these three values:
+In Supabase SQL Editor, paste and run **all files in order**:
 
-   | Setting | Used as |
-   |---------|---------|
-   | Project URL | `NEXT_PUBLIC_SUPABASE_URL` |
-   | `anon` public key | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
-   | `service_role` key | `SUPABASE_SERVICE_ROLE_KEY` ⚠️ keep secret |
+```
+supabase/migrations/001_initial_schema.sql
+supabase/migrations/003_tighten_profiles_rls.sql
+supabase/migrations/004_explicit_grants.sql
+supabase/migrations/005_admin.sql
+supabase/migrations/006_track_b_powerups.sql
+```
 
-### 3. Get a football-data.org API key
+Then: **Project Settings → API → Reload schema cache**
 
-1. Register at [football-data.org/client/register](https://www.football-data.org/client/register)
-2. Check your email for the API key
-3. Note it as `FOOTBALL_DATA_API_KEY`
-4. Free tier limit: 10 req/min. The sync scripts auto-throttle with a 6-second delay.
+Copy these values:
 
-### 4. Run locally
+| Setting | Used as |
+|---------|---------|
+| Project URL | `NEXT_PUBLIC_SUPABASE_URL` |
+| `anon` key | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| `service_role` key | `SUPABASE_SERVICE_ROLE_KEY` ⚠️ keep secret |
+
+### 3. Run locally
 
 ```bash
 cp .env.local.example .env.local
-# Edit .env.local — fill in values from steps 2 and 3
+# Fill in the Supabase values
 npm run dev
-# Open http://localhost:3000
+# Open http://localhost:3000/dev → seed all 72 group stage fixtures
 ```
 
-### 5. Deploy to Vercel
+### 4. Deploy to Vercel
 
-1. Push repo to GitHub
-2. [vercel.com](https://vercel.com) → **New Project** → import your repo
-3. Framework: **Next.js** (auto-detected)
-4. Add **Environment Variables** in Vercel (Settings → Environment Variables):
+1. Push to GitHub
+2. Vercel → New Project → import repo → framework: Next.js
+3. Add environment variables:
 
-   | Variable | Where to get it | Scope |
-   |----------|----------------|-------|
-   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project Settings → API | All |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Project Settings → API | All |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Project Settings → API | Production only |
-   | `NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID` | YouTube playlist URL (optional) | All |
+| Variable | Scope |
+|----------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | All |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | All |
+| `SUPABASE_SERVICE_ROLE_KEY` | Production only |
+| `NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID` | All (optional) |
 
-   > `FOOTBALL_DATA_API_KEY` is **not** needed in Vercel — it's only used by GitHub Actions.
+4. Deploy → share the URL with your friends
 
-5. **Deploy** → Vercel builds and gives you a production URL
+### 5. GitHub Secrets (for auto-sync)
 
-### 6. Add GitHub Secrets (for auto-sync)
+Settings → Secrets and variables → Actions:
 
-The workflow at `.github/workflows/sync-tournament.yml` runs twice daily.
-Add secrets at: GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**
-
-| Secret name | Value |
-|-------------|-------|
-| `SUPABASE_URL` | Same as `NEXT_PUBLIC_SUPABASE_URL` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role key |
-| `FOOTBALL_DATA_API_KEY` | football-data.org API key |
-
-> The secret must be named `SUPABASE_URL` (no `NEXT_PUBLIC_` prefix) because GitHub secret names only support alphanumeric characters and underscores.
-
-### 7. (Optional) Add YouTube background music
-
-1. Find a football playlist on YouTube (search "FIFA World Cup songs", "football stadium music", "no copyright football music")
-2. Open the playlist → copy the URL: `youtube.com/playlist?list=XXXXXXXXXXX`
-3. Copy the ID after `?list=` (e.g. `PLfoo123bar`)
-4. Add `NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID=PLfoo123bar` in Vercel environment variables → Redeploy
-
-The 🎵 button appears in the bottom-right corner on every page. Music starts automatically on the user's first click anywhere.
-
-### 8. Invite your friends
-
-Share the Vercel URL. Each person:
-1. Opens the URL
-2. Creates an account (username + password only, no email needed)
-3. Picks an avatar and display name
-4. Gets a 7-step onboarding guide automatically
-
----
-
-## Running sync scripts manually
-
-```bash
-# Fetch all WC 2026 fixtures (run once before tournament starts)
-npm run sync:matches
-
-# Update scores for recently finished matches
-npm run sync:results
-
-# Re-score all evaluated bets + rebuild leaderboard
-npm run score:bets
-
-# Sync player names for the bet dropdowns (run once in June when squads are confirmed)
-npm run sync:players
-```
-
-All scripts read from `.env.local` locally. In GitHub Actions they read from repository secrets.
-
----
-
-## Key Dates
-
-| Date | Event |
-|------|-------|
-| **1 June 2026 00:00 CEST** | Betting window opens — all bet forms unlock |
-| **11 June 2026 17:00 UTC** | Tournament & Chaos bets lock permanently |
-| **11 June 2026 onwards** | Match bets lock individually at each kickoff |
-| **10 June – 19 July** | GitHub Actions syncs data twice daily (06:00 + 18:00 UTC) |
-| **19 July 2026** | WC Final — last scoring run |
+| Secret | Value |
+|--------|-------|
+| `SUPABASE_URL` | Project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
+| `FOOTBALL_DATA_API_KEY` | football-data.org key |
 
 ---
 
 ## Scoring Reference
 
-### Match bets (lock at kickoff)
-| Bet type | Points |
-|----------|--------|
-| Correct 1/X/2 | 10 p |
-| Exact score | 50 p |
-| First scorer | 30 p |
-| Both teams score | 5 p |
-| Yellow cards exact | 8 p |
-| Yellow cards ±1 | 4 p |
+### Fan Track — Match bets (lock 15 min before kickoff)
+| Bet | Points |
+|-----|--------|
+| 1-X-2 correct | 100 p |
+| Total goals exact | 50 p |
+| Total goals ±1 | 25 p |
+| Total goals ±2 | 10 p |
 
-### Tournament bets (lock June 11)
+### Fan Track — Tournament bets (lock June 11)
 | Bet | Points |
 |-----|--------|
 | WC winner | 5 000 p |
 | Top scorer | 4 000 p |
-| Both finalists correct | 3 000 p |
-| Total goals (exact 2 000p · ±2: 1 000p · ±5: 500p) | up to 2 000 p |
+| Both finalists | 3 000 p |
+| Total goals (exact) | 2 000 p |
 | Death group | 1 500 p |
 | Most red cards team | 1 000 p |
 
-### Chaos bets (10 000 p each, lock June 11)
-Goalkeeper scores · Coach sent off · 0-3 comeback in knockout · Final on penalties with 3+ misses · Sweden to the final · Most dramatic player on camera
+### Party Track — Predictions (lock June 11)
+6 wild yes/no scenarios · 10 000 p each if correct
 
 ### Power-ups (match bets only)
 | Power-up | Effect |
 |----------|--------|
-| Dubbel-eller-inget | 2× points if correct, 0 if wrong |
+| Dubbel-eller-inget | 2× if correct, 0 if wrong |
 | Taktikgeniet | 50% if right side, 0 if completely wrong |
-| 6-Poängaren | +600 p bonus added on top |
-| Försäkringen | 50% points back if wrong |
-| Tidsmaskinen | Change a locked guess after kickoff (once per bet) |
+| 6-Poängaren | +600 p bonus |
+| Försäkringen | 50% back if wrong |
+| Tidsmaskinen | Change a locked guess after kickoff |
+| Joker (semi-final+) | Steal another player's match win |
+| Sabotage | Freeze a rival's winning bet |
+| Punto Bandito | Steal points from round leader |
+
+---
+
+## Database Schema
+
+```
+profiles            user info, avatar, total points
+bets                all predictions (match + tournament + kaos)
+matches             WC fixtures, scores, stage, group
+leaderboard_cache   pre-computed rankings
+trash_talk          group chat messages
+user_powerups       power-up inventory per user
+admin_outcomes      correct answers for tournament/kaos bets
+suggestion_stats    safe/devil/crazy pick counters
+```
 
 ---
 
@@ -284,73 +259,38 @@ Goalkeeper scores · Coach sent off · 0-3 comeback in knockout · Final on pena
 ```
 Browser
   └── Next.js 14 on Vercel
-        ├── /dashboard        leaderboard, results, chat
-        ├── /bets/turnering   tournament predictions
-        ├── /bets/match/[id]  per-match betting form
-        ├── /bets/kaos        chaos predictions
-        └── /auth             username + password auth
+        ├── /dashboard         leaderboard, results, chat
+        ├── /bets              two-camp overview
+        ├── /bets/turnering    tournament predictions (Fan)
+        ├── /bets/match/[id]   per-match form + power-ups (Fan)
+        ├── /bets/kaos         party predictions (Party)
+        ├── /admin             scoring + outcome management
+        ├── /dev               simulation console (local only)
+        └── /auth              username + password auth
 
 Supabase
-  ├── Auth    admin API — create users, no email confirmation
-  ├── Postgres
-  │   ├── profiles            user info + avatar
-  │   ├── bets                all predictions
-  │   ├── matches             WC fixture + score data
-  │   ├── leaderboard_cache   pre-computed rankings
-  │   ├── trash_talk          group chat messages
-  │   └── user_powerups       power-up inventory
-  └── Realtime  live chat subscriptions (no polling)
+  ├── Auth     admin API — no email confirmation
+  ├── Postgres (7 tables, full RLS)
+  └── Realtime live chat (no polling)
 
-GitHub Actions (cron 06:00 + 18:00 UTC · June 10 – July 19 only)
-  ├── sync:matches    fetch fixture list → upsert matches table
-  ├── sync:results    fetch scores → update matches + first_scorer
-  └── score:bets      evaluate bets → update points + leaderboard_cache
-```
-
----
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── auth/               sign in / sign up
-│   ├── onboarding/         avatar + username pick
-│   ├── dashboard/          main hub (leaderboard, chat)
-│   └── bets/
-│       ├── turnering/      tournament predictions
-│       ├── match/[id]/     per-match form + power-ups
-│       └── kaos/           chaos predictions
-├── components/             shared UI (BottomNav, BigCountdown, etc.)
-├── lib/
-│   ├── bets.ts             bet definitions + point values
-│   ├── scoring.ts          pure scoring functions
-│   └── teams.ts            WC 2026 teams + player list
-└── types/database.ts       Supabase TypeScript types
-
-scripts/
-├── _client.ts              shared Supabase + API helpers
-├── sync-matches.ts
-├── sync-results.ts
-├── sync-players.ts
-└── score-bets.ts
-
-supabase/migrations/
-└── 001_initial_schema.sql
+GitHub Actions  cron 06:00 + 18:00 UTC · June 10 – July 19
+  ├── sync:matches    fixtures → matches table
+  ├── sync:results    scores → matches + scoring
+  └── score:bets      evaluate all bets → leaderboard
 ```
 
 ---
 
 ## Security Notes
 
-- `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS — **never** expose it in client-side code or commit it to git
-- `NEXT_PUBLIC_*` variables are safe to expose (protected by RLS policies on the database)
-- `.env.local` is in `.gitignore` — verify before every commit
-- All server actions re-validate the authenticated session before touching data
-- Row Level Security policies ensure users can only read/write their own bets
+- `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS — never expose client-side or commit to git
+- `NEXT_PUBLIC_*` variables are safe (protected by RLS on the DB)
+- `.env.local` is in `.gitignore`
+- All server actions re-validate the authenticated session
+- `/dev` and `/admin` routes should be removed or gated before making the repo public
 
 ---
 
 ## License
 
-Personal project — built for one friend group, for ära och heder. Not licensed for redistribution.
+Personal project — built for one friend group, for ära och heder.

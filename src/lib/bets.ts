@@ -1,7 +1,7 @@
 import type { BetCategory } from "@/types/database";
 
-// Betting window: June 1 → June 11
-export const BETTING_OPENS  = new Date("2026-06-01T00:00:00+02:00");
+// Betting window: June 8 → June 11
+export const BETTING_OPENS  = new Date("2026-06-08T00:00:00+02:00");
 // WC 2026 opens June 11, first match 17:00 UTC
 export const TOURNAMENT_LOCK = new Date("2026-06-11T17:00:00Z");
 
@@ -67,105 +67,93 @@ export const TURNERING_BETS: BetDef[] = [
   },
 ];
 
+// Track B — wild party predictions (10 000 p each if correct, locked at tournament start)
 export const KAOS_BETS: BetDef[] = [
   {
     id: "goalkeeper_goal",
-    label: "En målvakt gör mål",
-    description: "Händer det? Det har ALDRIG hänt i VM-historia. Men du kan tro på drömmar.",
+    label: "Målvakten gör mål! 🧤⚽",
+    description: "En målvakt laddar upp, springer hela planen och nickar in bollen. Har ALDRIG hänt i VM. Välj klokt — eller välj kaos.",
     points: 10000,
     category: "kaos",
     inputType: "yesno",
   },
   {
     id: "coach_sent_off",
-    label: "Tränare utvisas från bänken",
-    description: "Någon tränare tappar kontrollen helt och utvisas officiellt från avbytarbänken.",
+    label: "Tränaren flippar ut! 🤯🟥",
+    description: "Någon tränare tappar HELT kontrollen och utvisas officiellt från avbytarbänken. Temperament på world stage.",
     points: 10000,
     category: "kaos",
     inputType: "yesno",
   },
   {
     id: "comeback_win",
-    label: "Det omöjliga comebacket",
-    description: "Ett lag vänder 0–3 och vinner i förlängning eller straffar — i ett knockout-möte.",
+    label: "Det omöjliga comebacket 🔥↩️",
+    description: "Ett lag vänder 0–3 och vinner i förlängning eller straffar — i ett knockout-möte. En gång i universum.",
     points: 10000,
     category: "kaos",
     inputType: "yesno",
   },
   {
     id: "final_penalty_miss",
-    label: "Straffkaos i finalen",
-    description: "Finalen avgörs på straffar OCH minst tre straffar missas totalt. Kaos garanterat.",
+    label: "Straffhelvete i finalen 😱🎯",
+    description: "VM-finalen avgörs på straffar OCH minst tre straffar missas totalt. Nervöst. Kaotiskt. Oförglömligt.",
     points: 10000,
     category: "kaos",
     inputType: "yesno",
   },
   {
     id: "sweden_final",
-    label: "Sverige till VM-finalen",
-    description: "Sverige. Final. VM 2026. Ja, du kan skratta — men om det händer är du legend för evigt.",
+    label: "Sverige till VM-finalen 🇸🇪👑",
+    description: "Sverige. VM-final. 2026. Du får skratta nu. Men om det händer — du är legend för evigt och alla andra ger dig 100 öl.",
     points: 10000,
     category: "kaos",
     inputType: "yesno",
   },
   {
     id: "knockout_hattrick",
-    label: "Hattrick i ett slutspelsmöte",
-    description: "Någon spelare gör tre mål i samma knockout-match (åttondel, kvart, semi eller final).",
+    label: "Hattrick i slutspelet ⚽⚽⚽",
+    description: "Någon spelare skjuter hattrick i en och samma knockout-match (åttondel, kvart, semi eller final). Sällsynt som en enhörning.",
     points: 10000,
     category: "kaos",
     inputType: "yesno",
   },
 ];
 
+// Track A — simplified match bets (shown in UI)
 export const MATCH_BET_TYPES: BetDef[] = [
   {
     id: "match_result",
     label: "Matchresultat",
     description: "Hemmavinst (1) / Oavgjort (X) / Bortavinst (2)",
-    points: 10,
+    points: 100,
     category: "match",
     inputType: "yesno", // handled specially as 3-way
   },
   {
-    id: "exact_score",
-    label: "Exakt slutresultat",
-    description: "Gissa exakt slutresultat — power-ups ger stor boost!",
+    id: "total_goals_match",
+    label: "Totalt antal mål",
+    description: "Hur många mål görs i matchen totalt? Exakt = 50p, ±1 = 25p, ±2 = 10p",
     points: 50,
     category: "match",
     inputType: "number",
   },
-  {
-    id: "first_scorer",
-    label: "Första målskytt",
-    description: "Vem gör matchens första mål?",
-    points: 30,
-    category: "match",
-    inputType: "player",
-  },
-  {
-    id: "red_card_shown",
-    label: "Rött kort visas",
-    description: "Visas något rött kort i matchen? (Direkt eller dubbla gult)",
-    points: 15,
-    category: "match",
-    inputType: "yesno",
-  },
-  {
-    id: "yellow_cards",
-    label: "Antal gula kort",
-    description: "Totalt antal gula kort i matchen (±1 = 4p, exakt = 8p)",
-    points: 8,
-    category: "match",
-    inputType: "number",
-  },
+];
+
+// Legacy match bet types (kept for backward-compat scoring of old DB rows — not shown in UI)
+export const LEGACY_MATCH_BET_TYPES: BetDef[] = [
+  { id: "exact_score",    label: "Exakt slutresultat",  description: "", points: 50,  category: "match", inputType: "number" },
+  { id: "first_scorer",   label: "Första målskytt",     description: "", points: 30,  category: "match", inputType: "player" },
+  { id: "red_card_shown", label: "Rött kort visas",     description: "", points: 15,  category: "match", inputType: "yesno" },
+  { id: "yellow_cards",   label: "Antal gula kort",     description: "", points: 8,   category: "match", inputType: "number" },
+  { id: "both_teams_score", label: "Båda lagen gör mål", description: "", points: 10, category: "match", inputType: "yesno" },
 ];
 
 // WC 2026 groups A-L (48 teams, 12 groups of 4)
 export const WC_GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 export const POINTS_BREAKDOWN: Record<string, string> = {
-  total_goals: "Exakt: 2 000p · ±2 mål: 1 000p · ±5 mål: 500p",
-  yellow_cards: "Exakt: 8p · ±1 kort: 4p",
-  exact_score: "Power-ups ger 2×, +600p bonus eller skyddspoäng",
+  total_goals:       "Exakt: 2 000p · ±2 mål: 1 000p · ±5 mål: 500p",
+  total_goals_match: "Exakt: 50p · ±1 mål: 25p · ±2 mål: 10p",
+  yellow_cards:      "Exakt: 8p · ±1 kort: 4p",
+  exact_score:       "Power-ups ger 2×, +600p bonus eller skyddspoäng",
 };

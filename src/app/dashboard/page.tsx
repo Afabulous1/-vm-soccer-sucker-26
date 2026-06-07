@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatar } from "@/lib/avatars";
 import { BETTING_OPENS, TOURNAMENT_LOCK, TURNERING_BETS, KAOS_BETS, MATCH_BET_TYPES } from "@/lib/bets";
+import { WC_GROUPS_DATA } from "@/lib/teams";
 import { getNowServer } from "@/lib/now";
 import AvatarCard from "@/components/AvatarCard";
 import BigCountdown from "@/components/BigCountdown";
@@ -107,9 +108,10 @@ export default async function DashboardPage() {
   const awarded = (awardedBets ?? []).reduce((s, b) => s + ((b.points_awarded as number) ?? 0), 0);
   const pending = (pendingBets  ?? []).reduce((s, b) => s + ((b.points_wager  as number) ?? 0), 0);
 
-  const turneringMax   = TURNERING_BETS.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
-  const kaosMax        = KAOS_BETS.reduce((s, b) => s + b.points, 0);
-  const matchMax       = MATCH_BET_TYPES.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
+  const turneringMax = TURNERING_BETS.reduce((s, b) => s + b.points + (b.bonusPoints ?? 0), 0);
+  const kaosMax      = KAOS_BETS.reduce((s, b) => s + b.points, 0);
+  // Track A: 2 bets per match — match_result (100p) + total_goals_match (50p)
+  const matchMax     = MATCH_BET_TYPES.reduce((s, b) => s + b.points, 0);
   const turneringUnplaced = betCounts.turnering < TURNERING_BETS.length
     ? ((TURNERING_BETS.length - betCounts.turnering) / TURNERING_BETS.length) * turneringMax : 0;
   const kaosUnplaced   = betCounts.kaos < KAOS_BETS.length
@@ -130,26 +132,39 @@ export default async function DashboardPage() {
   const streak        = myRankData?.current_streak ?? 0;
   const weeklyPts     = myRankData?.weekly_points ?? 0;
 
-  const betCategories = [
+  const trackACategories = [
     {
       href: "/bets/turnering", emoji: "🏆", label: "Turnering",
+      sublabel: "Vem vinner VM?",
       done: betCounts.turnering, total: TURNERING_BETS.length,
       color: "border-blue-500/30 bg-gradient-to-br from-blue-900/40 to-blue-800/20",
       badge: "bg-blue-500/20 text-blue-300",
     },
     {
-      href: "/bets/match", emoji: "⚽", label: "Match",
+      href: "/bets/match", emoji: "⚽", label: "Matcher",
+      sublabel: "1-X-2 + mål/match",
       done: betCounts.match, total: null,
       color: "border-violet-500/30 bg-gradient-to-br from-violet-900/40 to-violet-800/20",
       badge: "bg-violet-500/20 text-violet-300",
     },
-    {
-      href: "/bets/kaos", emoji: "🔥", label: "Kaos",
-      done: betCounts.kaos, total: KAOS_BETS.length,
-      color: "border-rose-500/30 bg-gradient-to-br from-rose-900/40 to-rose-800/20",
-      badge: "bg-rose-500/20 text-rose-300",
-    },
   ];
+
+  const trackBCategory = {
+    href: "/bets/kaos", emoji: "🔥", label: "Party Predictions",
+    sublabel: "Galna scenarion — 10k p/st",
+    done: betCounts.kaos, total: KAOS_BETS.length,
+    color: "border-rose-500/30 bg-gradient-to-br from-rose-900/30 to-orange-900/20",
+    badge: "bg-rose-500/20 text-rose-300",
+  };
+
+  // Urgency: unplaced bets before lock
+  const turneringLeft = TURNERING_BETS.length - betCounts.turnering;
+  const kaosLeft = KAOS_BETS.length - betCounts.kaos;
+  const totalLeft = turneringLeft + kaosLeft;
+  const showUrgency = bettingOpen && !isLocked && totalLeft > 0;
+
+  // Total groups count for context
+  const totalGroups = WC_GROUPS_DATA.length;
 
   return (
     <div className="pitch-bg min-h-screen">
@@ -164,21 +179,22 @@ export default async function DashboardPage() {
 
       {/* Top nav */}
       <nav className="relative sticky top-0 z-40 bg-pitch-dark/95 backdrop-blur border-b border-pitch-light/20">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/dashboard" className="font-bebas text-gold text-2xl tracking-widest hover:text-yellow-400 transition-colors">
-            ⚽ VM 26
+        <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+          <Link href="/dashboard" className="flex flex-col leading-none hover:opacity-80 transition-opacity">
+            <span className="font-bebas text-gold text-xl tracking-widest">⚽ VM SOCCER SUCKER</span>
+            <span className="text-green-700 text-[9px] tracking-widest uppercase font-bold">World Cup 2026</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {!isLocked && bettingOpen && (
               <Link
                 href="/bets"
-                className="bg-gold/10 border border-gold/30 text-gold font-bebas tracking-widest text-sm px-3 py-1.5 rounded-xl hover:bg-gold/20 transition-all"
+                className="bg-gold/10 border border-gold/30 text-gold font-bebas tracking-widest text-sm px-3 py-1.5 rounded-xl hover:bg-gold/20 transition-all active:scale-95"
               >
                 GISSA →
               </Link>
             )}
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br shadow-inner ${avatar?.gradient ?? "from-pitch to-pitch-light"}`}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br shadow-inner shrink-0 ${avatar?.gradient ?? "from-pitch to-pitch-light"}`}
             >
               {avatar?.emoji ?? "⚽"}
             </div>
@@ -224,15 +240,15 @@ export default async function DashboardPage() {
 
         {/* ── Countdown / status banner ─────────────────────────────────── */}
         {!bettingOpen ? (
-          /* Pre June 1 — big countdown */
+          /* Pre June 8 — big countdown */
           <div className="rounded-3xl border border-gold/20 bg-gradient-to-br from-pitch-dark/90 to-pitch/60 p-6 text-center space-y-4 shadow-xl">
             <div>
               <p className="font-bebas text-xl text-green-400 tracking-widest">GISSNINGARNA ÖPPNAR</p>
-              <p className="font-bebas text-4xl text-gold tracking-widest">1 JUNI 2026</p>
+              <p className="font-bebas text-4xl text-gold tracking-widest">8 JUNI 2026</p>
             </div>
             <BigCountdown target={BETTING_OPENS.toISOString()} />
             <p className="text-green-600 text-xs">
-              10 dagar på dig att lägga alla gissningar · passa på att planera din strategi!
+              3 dagar på dig att lägga alla gissningar innan VM börjar 11 juni!
             </p>
           </div>
         ) : !isLocked ? (
@@ -293,29 +309,119 @@ export default async function DashboardPage() {
         {/* ── Live feed / announcements ──────────────────────────────────── */}
         <LiveFeedSection now={now} leaderboard={leaderboard ?? []} />
 
+        {/* ── Urgency CTA ──────────────────────────────────────────────── */}
+        {showUrgency && (
+          <div className="rounded-2xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-900/30 to-orange-900/20 p-4 space-y-3 shadow-lg shadow-amber-900/20">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl shrink-0">⚡</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-amber-300 font-bebas text-xl tracking-wider leading-none">
+                  {totalLeft} GISSNINGAR KVAR ATT LÄGGA!
+                </p>
+                <p className="text-amber-400/70 text-xs mt-0.5">
+                  Låser 11 juni kl 19:00 · Missa inte poängen
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {turneringLeft > 0 && (
+                <Link
+                  href="/bets/turnering"
+                  className="flex-1 min-w-[120px] bg-blue-600/80 hover:bg-blue-500 text-white font-bebas text-sm tracking-widest py-2.5 px-3 rounded-xl transition-all active:scale-95 text-center touch-manipulation"
+                >
+                  🏆 {turneringLeft} Turnering
+                </Link>
+              )}
+              {kaosLeft > 0 && (
+                <Link
+                  href="/bets/kaos"
+                  className="flex-1 min-w-[120px] bg-rose-600/80 hover:bg-rose-500 text-white font-bebas text-sm tracking-widest py-2.5 px-3 rounded-xl transition-all active:scale-95 text-center touch-manipulation"
+                >
+                  🔥 {kaosLeft} Party
+                </Link>
+              )}
+              <Link
+                href="/bets/match"
+                className="flex-1 min-w-[120px] bg-violet-600/80 hover:bg-violet-500 text-white font-bebas text-sm tracking-widest py-2.5 px-3 rounded-xl transition-all active:scale-95 text-center touch-manipulation"
+              >
+                ⚽ Matcher →
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* ── Bet category cards ────────────────────────────────────────── */}
         <div>
           <h2 className="font-bebas text-2xl text-gold tracking-widest mb-3">MINA GISSNINGAR</h2>
-          <div className="grid grid-cols-3 gap-2.5">
-            {betCategories.map((cat) => (
-              <Link
-                key={cat.href}
-                href={cat.href}
-                className={`rounded-2xl border p-4 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-150 active:scale-95 ${cat.color}`}
-              >
-                <div className="text-3xl mb-1.5">{cat.emoji}</div>
-                <p className="text-white font-bold text-xs mb-2 leading-tight">{cat.label}</p>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${cat.badge}`}>
-                  {cat.total ? `${cat.done}/${cat.total}` : `${cat.done} st`}
-                </span>
-                {cat.total !== null && cat.done < cat.total && bettingOpen && !isLocked && (
-                  <p className="text-amber-400 text-[10px] mt-1.5 font-semibold">{cat.total - cat.done} kvar ⚡</p>
-                )}
-                {cat.total !== null && cat.done === cat.total && (
-                  <p className="text-green-400 text-[10px] mt-1.5">✓ Klart!</p>
-                )}
-              </Link>
-            ))}
+
+          {/* Track A */}
+          <div className="mb-2">
+            <p className="text-violet-400 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500 inline-block" />
+              ⚽ Fan Track — kräver fotbollskännedom
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {trackACategories.map((cat) => (
+                <Link
+                  key={cat.href}
+                  href={cat.href}
+                  className={`rounded-2xl border p-4 hover:scale-[1.02] hover:shadow-lg transition-all duration-150 active:scale-95 touch-manipulation ${cat.color}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl shrink-0">{cat.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm leading-tight">{cat.label}</p>
+                      <p className="text-green-600 text-[10px] mt-0.5 leading-tight">{cat.sublabel}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${cat.badge}`}>
+                      {cat.total ? `${cat.done}/${cat.total}` : `${cat.done} spel`}
+                    </span>
+                    {cat.total !== null && cat.done < cat.total && bettingOpen && !isLocked && (
+                      <span className="text-amber-400 text-[10px] font-semibold">{cat.total - cat.done} kvar ⚡</span>
+                    )}
+                    {cat.total !== null && cat.done === cat.total && (
+                      <span className="text-green-400 text-[10px]">✓ Klart!</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Track B */}
+          <div>
+            <p className="text-rose-400 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
+              🔥 Party Track — perfekt för alla
+            </p>
+            <Link
+              href={trackBCategory.href}
+              className={`block rounded-2xl border p-4 hover:scale-[1.01] hover:shadow-lg transition-all duration-150 active:scale-95 touch-manipulation ${trackBCategory.color}`}
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-4xl shrink-0">{trackBCategory.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-bold text-base leading-tight">{trackBCategory.label}</p>
+                  <p className="text-green-600 text-xs mt-0.5">{trackBCategory.sublabel}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold block mb-1 ${trackBCategory.badge}`}>
+                    {trackBCategory.done}/{trackBCategory.total}
+                  </span>
+                  {trackBCategory.done < (trackBCategory.total ?? 0) && bettingOpen && !isLocked && (
+                    <span className="text-amber-400 text-[10px] font-semibold">{(trackBCategory.total ?? 0) - trackBCategory.done} kvar ⚡</span>
+                  )}
+                  {trackBCategory.done === trackBCategory.total && (
+                    <span className="text-green-400 text-[10px]">✓ Klart!</span>
+                  )}
+                </div>
+              </div>
+              <p className="text-rose-300/50 text-[10px] mt-2">
+                48 lag · {totalGroups} grupper · 10 000p per rätt kaos-gissning
+              </p>
+            </Link>
           </div>
         </div>
 

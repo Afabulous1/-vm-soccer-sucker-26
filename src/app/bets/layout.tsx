@@ -45,7 +45,7 @@ export default async function BetsLayout({ children }: { children: React.ReactNo
           </div>
 
           <div className="rounded-xl border border-pitch-light/20 bg-pitch/40 p-4 text-xs text-green-500 space-y-1.5 text-left">
-            <p>📅 <strong className="text-green-300">1 juni</strong> — Gissningsfönstret öppnar</p>
+            <p>📅 <strong className="text-green-300">8 juni</strong> — Gissningsfönstret öppnar</p>
             <p>🏆 <strong className="text-green-300">11 juni 17:00 UTC</strong> — Turnering &amp; Kaos låser</p>
             <p>⚽ <strong className="text-green-300">Varje match</strong> — Matchgissningar låser vid avspark</p>
           </div>
@@ -84,9 +84,10 @@ export default async function BetsLayout({ children }: { children: React.ReactNo
           <div className="flex items-center gap-1 overflow-x-auto py-2.5 scrollbar-none">
             <Link
               href="/dashboard"
-              className="font-bebas text-gold text-xl tracking-widest hover:text-yellow-400 transition-colors shrink-0 pr-2 border-r border-pitch-light/20 mr-1"
+              className="flex flex-col leading-none shrink-0 pr-3 border-r border-pitch-light/20 mr-1 hover:opacity-80 transition-opacity"
             >
-              ⚽ VM 26
+              <span className="font-bebas text-gold text-lg tracking-widest">⚽ VM SOCCER SUCKER</span>
+              <span className="text-green-700 text-[8px] tracking-widest uppercase font-bold">World Cup 2026</span>
             </Link>
             {navItems.map((item) => (
               <Link

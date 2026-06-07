@@ -8,10 +8,7 @@ export default async function BetsPage() {
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data: betCounts } = user
-    ? await supabase
-        .from("bets")
-        .select("bet_category")
-        .eq("user_id", user.id)
+    ? await supabase.from("bets").select("bet_category").eq("user_id", user.id)
     : { data: [] };
 
   const counts = {
@@ -20,47 +17,9 @@ export default async function BetsPage() {
     kaos:      betCounts?.filter((b) => b.bet_category === "kaos").length ?? 0,
   };
 
-  const categories = [
-    {
-      href: "/bets/turnering",
-      emoji: "🏆",
-      label: "Turneringsgissningar",
-      description: "6 gissningar om hela turneringen — låser vid start",
-      total: TURNERING_BETS.length,
-      done: counts.turnering,
-      gradient: "from-blue-900/60 to-blue-800/40",
-      border: "border-blue-600/40",
-      badge: "bg-blue-500/20 text-blue-300",
-      lockAt: TOURNAMENT_LOCK,
-    },
-    {
-      href: "/bets/match",
-      emoji: "⚽",
-      label: "Matchgissningar",
-      description: "Gissa resultat, exakt poäng, målskytt och mer per match",
-      total: null,
-      done: counts.match,
-      gradient: "from-violet-900/60 to-violet-800/40",
-      border: "border-violet-600/40",
-      badge: "bg-violet-500/20 text-violet-300",
-      lockAt: null,
-    },
-    {
-      href: "/bets/kaos",
-      emoji: "🔥",
-      label: "Kaosgissningar",
-      description: "6 vilda gissningar — dubbla poäng om du har rätt!",
-      total: KAOS_BETS.length,
-      done: counts.kaos,
-      gradient: "from-rose-900/60 to-rose-800/40",
-      border: "border-rose-600/40",
-      badge: "bg-rose-500/20 text-rose-300",
-      lockAt: TOURNAMENT_LOCK,
-    },
-  ];
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+
       <div>
         <h1 className="font-bebas text-5xl text-gold tracking-widest">DINA GISSNINGAR</h1>
         <p className="text-green-400 text-sm mt-1">
@@ -70,34 +29,110 @@ export default async function BetsPage() {
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-3 gap-4">
-        {categories.map((cat) => (
-          <Link
-            key={cat.href}
-            href={cat.href}
-            className={`block rounded-2xl border bg-gradient-to-br ${cat.gradient} ${cat.border} p-6 hover:scale-[1.02] transition-all duration-200 group`}
-          >
-            <div className="text-4xl mb-3">{cat.emoji}</div>
-            <h2 className="font-bebas text-2xl text-white tracking-wide leading-tight mb-1">
-              {cat.label}
-            </h2>
-            <p className="text-white/60 text-xs mb-4 leading-relaxed">{cat.description}</p>
+      {/* ── Camp explainer ───────────────────────────────────────────── */}
+      <div className="grid sm:grid-cols-2 gap-4">
 
-            <div className="flex items-center justify-between">
-              <span className={`text-xs px-2 py-1 rounded-full font-semibold ${cat.badge}`}>
-                {cat.total ? `${cat.done}/${cat.total} gissningar` : `${cat.done} gissningar`}
-              </span>
-              <span className="text-white/40 group-hover:text-white/80 transition-colors text-lg">→</span>
+        {/* Camp 1: Soccer Fan */}
+        <div className="rounded-2xl border-2 border-violet-500/40 bg-gradient-to-br from-violet-900/30 to-blue-900/20 p-5 space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">⚽</span>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400">Laget du vill vara med i</p>
+              <h2 className="font-bebas text-2xl text-white tracking-widest leading-none">FOTBOLLSFANSEN</h2>
             </div>
-          </Link>
-        ))}
+          </div>
+          <p className="text-violet-200/70 text-sm leading-relaxed">
+            Du kollar matcher, känner till lagen och vill visa att du vet vem som vinner.
+            Gissa matchresultat och turneringsutfall — ju mer du kan, desto mer poäng.
+          </p>
+          <div className="space-y-2">
+            <Link
+              href="/bets/turnering"
+              className="flex items-center justify-between rounded-xl border border-blue-500/30 bg-blue-900/20 px-4 py-3 hover:border-blue-400/60 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🏆</span>
+                <div>
+                  <p className="text-white font-bold text-sm">Turneringsgissningar</p>
+                  <p className="text-blue-300/60 text-xs">VM-vinnare, finalister, skyttekung…</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-blue-300 text-xs font-bold">{counts.turnering}/{TURNERING_BETS.length}</p>
+                <span className="text-blue-500 group-hover:text-blue-300 transition-colors text-lg">→</span>
+              </div>
+            </Link>
+            <Link
+              href="/bets/match"
+              className="flex items-center justify-between rounded-xl border border-violet-500/30 bg-violet-900/20 px-4 py-3 hover:border-violet-400/60 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⚽</span>
+                <div>
+                  <p className="text-white font-bold text-sm">Matchgissningar</p>
+                  <p className="text-violet-300/60 text-xs">1-X-2 och totalt antal mål per match</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-violet-300 text-xs font-bold">{counts.match} spel</p>
+                <span className="text-violet-500 group-hover:text-violet-300 transition-colors text-lg">→</span>
+              </div>
+            </Link>
+          </div>
+        </div>
+
+        {/* Camp 2: Party Player */}
+        <div className="rounded-2xl border-2 border-rose-500/40 bg-gradient-to-br from-rose-900/30 to-orange-900/20 p-5 space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">🔥</span>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400">För dig som bara vill ha kul</p>
+              <h2 className="font-bebas text-2xl text-white tracking-widest leading-none">PARTY-SPELAREN</h2>
+            </div>
+          </div>
+          <p className="text-rose-200/70 text-sm leading-relaxed">
+            Du behöver inte kunna ett skit om fotboll för att vinna här.
+            Gissa på galna scenarion — JA eller NEJ — och skratta dig till 10 000 poäng.
+            Sabotage dina kompisar med Party-krafter under turneringen.
+          </p>
+          <div className="space-y-2">
+            <Link
+              href="/bets/kaos"
+              className="flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-900/20 px-4 py-3 hover:border-rose-400/60 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🎲</span>
+                <div>
+                  <p className="text-white font-bold text-sm">Party Predictions</p>
+                  <p className="text-rose-300/60 text-xs">6 galna scenarion · 10 000p om rätt</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-rose-300 text-xs font-bold">{counts.kaos}/{KAOS_BETS.length}</p>
+                <span className="text-rose-500 group-hover:text-rose-300 transition-colors text-lg">→</span>
+              </div>
+            </Link>
+            <div className="rounded-xl border border-rose-500/20 bg-rose-900/10 px-4 py-3">
+              <p className="text-rose-300/50 text-xs">
+                🧊 <strong className="text-rose-300">Sabotage</strong> — frys en rivals vinnande gissning{" "}
+                <span className="text-rose-500">· Aktiveras under turneringen</span>
+              </p>
+              <p className="text-rose-300/50 text-xs mt-1">
+                🦊 <strong className="text-rose-300">Punto Bandito</strong> — stjäl poäng från rundens ledare{" "}
+                <span className="text-rose-500">· Aktiveras under turneringen</span>
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Quick tips */}
-      <div className="rounded-xl border border-pitch-light/30 bg-pitch/40 p-4 text-xs text-green-500 space-y-1">
-        <p>🔒 Turneringsgissningar och Kaosgissningar låser automatiskt när turneringen startar.</p>
-        <p>⚽ Matchgissningar låser vid avspark för varje enskild match.</p>
-        <p>⚡ Power-ups och sköldar kan användas när du lägger din gissning.</p>
+      {/* ── Quick tips ──────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-pitch-light/30 bg-pitch/40 p-4 text-xs text-green-500 space-y-1.5">
+        <p className="font-semibold text-green-400">Hur fungerar det?</p>
+        <p>🔒 Turneringsgissningar och Party Predictions låser när VM startar 11 juni kl 19:00.</p>
+        <p>⚽ Matchgissningar låser 15 min innan varje match — alla matcher finns tillgängliga att gissa på från start.</p>
+        <p>⚡ Power-ups och sköldar används när du lägger en matchgissning.</p>
+        <p>🔥 Du kan tillhöra båda lagen — gissa på allt för maxpoäng!</p>
       </div>
     </div>
   );
