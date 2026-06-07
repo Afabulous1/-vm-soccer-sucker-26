@@ -1,11 +1,7 @@
 "use client";
 
-// Accepts full YouTube URLs or raw IDs:
-//   https://www.youtube.com/watch?v=nj-MuUsulMU  → video
-//   https://www.youtube.com/playlist?list=PL...   → playlist
-//   https://youtu.be/nj-MuUsulMU                  → video
-//   nj-MuUsulMU                                   → video ID directly
-//   PL7KLwyJCC7QwT8BNvKF7mokkODa6aNfAH           → playlist ID directly
+// Accepts full YouTube URLs or raw IDs.
+// When a URL has both ?v= and &list=, list takes priority (radio/mix support).
 
 import { useRef, useState, useEffect } from "react";
 
@@ -15,19 +11,20 @@ function extractId(input: string): string {
   if (!input) return "";
   try {
     const url = new URL(input);
-    if (url.searchParams.get("v"))    return url.searchParams.get("v")!;
+    // Prefer list= over v= so radio mixes (RD*) work correctly
     if (url.searchParams.get("list")) return url.searchParams.get("list")!;
+    if (url.searchParams.get("v"))    return url.searchParams.get("v")!;
     if (url.hostname === "youtu.be")  return url.pathname.slice(1).split("?")[0];
   } catch {
-    // Not a URL — treat as a raw ID
+    // Not a URL — raw ID
   }
   return input.trim();
 }
 
 function buildEmbedUrl(rawInput: string): string {
-  const id       = extractId(rawInput);
-  const base     = "https://www.youtube-nocookie.com/embed";
-  const common   = "autoplay=1&loop=1&controls=0&rel=0&modestbranding=1";
+  const id         = extractId(rawInput);
+  const base       = "https://www.youtube-nocookie.com/embed";
+  const common     = "autoplay=1&loop=1&controls=0&rel=0&modestbranding=1&enablejsapi=0";
   const isPlaylist = id.length > 11 || /^(PL|FL|RD|UU|LL|WL)/i.test(id);
 
   return isPlaylist
@@ -36,14 +33,15 @@ function buildEmbedUrl(rawInput: string): string {
 }
 
 export default function MusicPlayer() {
-  const [playing, setPlaying] = useState(false);
+  const [playing,  setPlaying]  = useState(false);
+  const [prompted, setPrompted] = useState(false); // show the CTA banner
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   function mount() {
     if (iframeRef.current || !RAW) return;
     const iframe = document.createElement("iframe");
     iframe.src   = buildEmbedUrl(RAW);
-    iframe.allow = "autoplay";
+    iframe.allow = "autoplay; encrypted-media";
     iframe.setAttribute("allowfullscreen", "false");
     iframe.style.cssText =
       "position:fixed;width:1px;height:1px;border:0;opacity:0.01;pointer-events:none;top:-9999px";
@@ -56,18 +54,17 @@ export default function MusicPlayer() {
     iframeRef.current = null;
   }
 
-  // Start music on first user interaction (browsers block true autoplay)
+  // Show the music CTA banner 2 s after mount so users notice it
   useEffect(() => {
     if (!RAW) return;
-    const start = () => { mount(); setPlaying(true); };
-    document.addEventListener("click", start, { once: true });
-    return () => { document.removeEventListener("click", start); unmount(); };
+    const t = setTimeout(() => setPrompted(true), 2000);
+    return () => { clearTimeout(t); unmount(); };
   }, []);
 
-  // Nothing configured — hide the button entirely
   if (!RAW) return null;
 
   function toggle() {
+    setPrompted(false);
     if (playing) {
       unmount();
       setPlaying(false);
@@ -78,24 +75,42 @@ export default function MusicPlayer() {
   }
 
   return (
-    <div className="fixed bottom-16 right-4 z-50 flex flex-col items-end gap-1.5">
-      {playing && (
-        <span className="text-[10px] font-bold tracking-widest text-gold/70 bg-pitch-dark/90 px-2 py-0.5 rounded-full border border-gold/20 select-none animate-pulse">
-          MUSIK ON
-        </span>
+    <div className="fixed bottom-20 right-3 z-50 flex flex-col items-end gap-2">
+
+      {/* CTA banner — shown before first interaction */}
+      {prompted && !playing && (
+        <div className="flex items-center gap-2 bg-pitch-dark/95 border border-gold/30 rounded-2xl px-3 py-2 shadow-xl shadow-black/40 animate-bounce">
+          <span className="text-lg">🎵</span>
+          <span className="text-gold text-xs font-bold whitespace-nowrap">Starta VM-musik!</span>
+          <button
+            onClick={() => setPrompted(false)}
+            className="text-green-700 hover:text-green-400 text-xs ml-1"
+          >
+            ✕
+          </button>
+        </div>
       )}
+
+      {/* Main button */}
       <button
         onClick={toggle}
-        title={playing ? "Stäng av musik" : "Starta VM-musik 🎵"}
-        aria-label={playing ? "Stäng av musik" : "Starta musik"}
-        className={`w-11 h-11 rounded-full flex items-center justify-center shadow-lg border text-xl transition-all duration-200 ${
+        title={playing ? "Stäng av musik" : "Starta VM-musik"}
+        aria-label={playing ? "Stäng av musik" : "Starta VM-musik"}
+        className={`w-13 h-13 rounded-full flex items-center justify-center shadow-xl border-2 text-2xl transition-all duration-200 active:scale-95 touch-manipulation ${
           playing
-            ? "bg-gold/20 border-gold/60 text-gold scale-110"
-            : "bg-pitch-dark/90 border-pitch-light/30 text-green-600 hover:border-gold/40 hover:text-gold"
+            ? "bg-gold/20 border-gold text-gold scale-110 shadow-gold/30"
+            : "bg-pitch-dark border-gold/40 text-gold hover:bg-gold/10 hover:border-gold"
         }`}
+        style={{ width: 52, height: 52 }}
       >
         {playing ? "🔊" : "🎵"}
       </button>
+
+      {playing && (
+        <span className="text-[10px] font-bold tracking-widest text-gold/60 select-none text-center w-full">
+          ♪ live
+        </span>
+      )}
     </div>
   );
 }
