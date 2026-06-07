@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useSabotage, usePuntoBandito } from "./party-actions";
+import { executeSabotage, executePuntoBandito } from "./party-actions";
 import type { MatchPlayer, PartyAction, PartyInventory } from "./party-actions";
 
 const AVATAR_EMOJI: Record<string, string> = {
@@ -51,7 +51,7 @@ export default function PartyMatchSection({
 
   function handleSabotage(targetUserId: string, targetUsername: string) {
     startTransition(async () => {
-      const res = await useSabotage(matchId, targetUserId);
+      const res = await executeSabotage(matchId, targetUserId);
       if (!res.ok) { showFeedback(res.error ?? "Fel", false); return; }
       setLocalActions((prev) => [
         ...prev,
@@ -65,7 +65,7 @@ export default function PartyMatchSection({
 
   function handlePuntoBandito() {
     startTransition(async () => {
-      const res = await usePuntoBandito(matchId);
+      const res = await executePuntoBandito(matchId);
       if (!res.ok) { showFeedback(res.error ?? "Fel", false); return; }
       setLocalActions((prev) => [
         ...prev,

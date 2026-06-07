@@ -124,7 +124,7 @@ export async function getMatchPartyData(matchId: string, isLocked: boolean): Pro
   return { players, myActions, inventory, incomingSabotages };
 }
 
-export async function useSabotage(matchId: string, targetUserId: string): Promise<{ ok: boolean; error?: string }> {
+export async function executeSabotage(matchId: string, targetUserId: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad" };
@@ -176,7 +176,7 @@ export async function useSabotage(matchId: string, targetUserId: string): Promis
   return { ok: true };
 }
 
-export async function usePuntoBandito(matchId: string): Promise<{ ok: boolean; error?: string }> {
+export async function executePuntoBandito(matchId: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad" };
