@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdmin } from "@supabase/supabase-js";
+import { buildGroupStageFixtures } from "@/lib/fixtures";
 import MatchKickoffBadge from "@/components/MatchKickoffBadge";
+import RandomBetButton from "./RandomBetButton";
 import type { Match } from "@/types/database";
 
 function formatKickoff(iso: string) {
@@ -20,35 +23,68 @@ export default async function MatchPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth");
 
+  // Auto-seed all 72 group stage fixtures if the table is empty.
+  // This runs once on first visit and is idempotent.
+  const { count: groupCount } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("stage", "group_stage");
+
+  if (!groupCount || groupCount < 10) {
+    const admin = createAdmin(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+    const fixtures = buildGroupStageFixtures();
+    await admin.from("matches").upsert(
+      fixtures.map((f) => ({ ...f, updated_at: new Date().toISOString() })),
+      { onConflict: "external_id" },
+    );
+  }
+
   const [{ data: matches }, { data: myBets }] = await Promise.all([
     supabase.from("matches").select("*").order("kickoff_at", { ascending: true }),
     supabase.from("bets").select("match_id").eq("user_id", user.id).eq("bet_category", "match"),
   ]);
 
   const bettedMatchIds = new Set((myBets ?? []).map((b) => b.match_id).filter(Boolean) as string[]);
+  const allMatches = matches ?? [];
 
-  const grouped = (matches ?? []).reduce<Record<string, Match[]>>((acc, m) => {
+  const grouped = allMatches.reduce<Record<string, Match[]>>((acc, m) => {
     const key = m.group_name ? `Grupp ${m.group_name}` : m.stage;
     (acc[key] ??= []).push(m);
     return acc;
   }, {});
+
+  const unlockedCount = allMatches.filter(
+    (m) => m.status === "scheduled" && new Date() < new Date(new Date(m.kickoff_at).getTime() - 15 * 60 * 1000)
+  ).length;
+  const unbettedUnlocked = allMatches.filter(
+    (m) => m.status === "scheduled" &&
+      !bettedMatchIds.has(m.id) &&
+      new Date() < new Date(new Date(m.kickoff_at).getTime() - 15 * 60 * 1000)
+  ).length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-bebas text-5xl text-violet-300 tracking-widest">MATCHGISSNINGAR ⚽</h1>
         <p className="text-violet-300/60 text-sm mt-1">
-          Gissa per match · låser vid avspark · superkrafter tillgängliga
+          Alla {unlockedCount} matcher öppna för gissning · låser 15 min före avspark
         </p>
       </div>
 
+      {/* ── Shuffle button ─────────────────────────────────────────────── */}
+      {unbettedUnlocked > 0 && (
+        <RandomBetButton remaining={unbettedUnlocked} />
+      )}
+
       {Object.keys(grouped).length === 0 ? (
         <div className="rounded-2xl border border-pitch-light/20 bg-pitch/40 p-10 text-center space-y-3">
-          <p className="text-5xl">📅</p>
-          <p className="text-white font-bold text-lg">Matcherna visas snart</p>
-          <p className="text-green-400 text-sm">
-            Vi laddar upp hela VM-programmet när turneringen startar den 11 juni 2026.
-          </p>
+          <p className="text-5xl">⏳</p>
+          <p className="text-white font-bold text-lg">Laddar matcher…</p>
+          <p className="text-green-400 text-sm">Ladda om sidan om ett ögonblick.</p>
         </div>
       ) : (
         Object.entries(grouped).map(([group, groupMatches]) => (
@@ -72,8 +108,10 @@ export default async function MatchPage() {
                   className={`block rounded-xl border p-4 transition-all group ${
                     isLive
                       ? "border-green-500/50 bg-green-900/20 shadow-lg shadow-green-900/20"
-                      : hasBet
+                      : hasBet && !isOver
                       ? "border-violet-500/30 bg-violet-900/10"
+                      : isOver
+                      ? "border-pitch-light/10 bg-pitch/20 opacity-60"
                       : "border-pitch-light/20 bg-pitch/30 hover:bg-pitch-light/10 hover:border-violet-500/30"
                   }`}
                 >
@@ -99,14 +137,15 @@ export default async function MatchPage() {
                       </div>
                     </div>
 
-                    {/* Right column: time + status */}
+                    {/* Right column */}
                     <div className="text-right shrink-0 space-y-1">
                       <p className="text-green-600 text-xs">{formatKickoff(m.kickoff_at)}</p>
                       <div className="flex items-center justify-end gap-1.5">
                         {hasBet && !isOver && (
                           <span className="text-[10px] text-violet-400 font-semibold">✓ Gissad</span>
                         )}
-                        <MatchKickoffBadge kickoffAt={m.kickoff_at} />
+                        {!isOver && <MatchKickoffBadge kickoffAt={m.kickoff_at} />}
+                        {isOver && <span className="text-[10px] text-green-800">Avslutad</span>}
                       </div>
                     </div>
                   </div>
