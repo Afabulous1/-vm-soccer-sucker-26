@@ -7,7 +7,10 @@ export type PowerupType =
   | "sexpoangaren"
   | "forsakringen"
   | "tidsmaskinen"
-  | "joker";
+  | "joker"
+  // Track B — Party sabotage powers
+  | "sabotage"      // Freeze a rival's winning bet for one match (sets their points_awarded to 0)
+  | "punto_bandito"; // Steal points from the current round leader
 
 // Matches Supabase's expected GenericSchema format
 export type Database = {

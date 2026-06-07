@@ -29,8 +29,9 @@ export async function saveBet(input: SaveBetInput): Promise<ActionResult> {
 
   if (!user) return { error: "Du måste vara inloggad." };
 
-  if ((await getNowServer()) >= input.lockTime) {
-    return { error: "Gissningsperioden är stängd — matchen/turneringen har börjat." };
+  const now = await getNowServer();
+  if (now >= input.lockTime) {
+    return { error: "Gissningsperioden är stängd — för sent att lägga gissning." };
   }
 
   // Check for existing bet of this type for this user (+optional match)
@@ -112,7 +113,13 @@ export async function saveBet(input: SaveBetInput): Promise<ActionResult> {
       shield_used: input.shieldUsed ?? null,
     });
 
-    if (error) return { error: "Kunde inte spara gissningen. Försök igen." };
+    if (error) {
+      // Unique constraint violation → duplicate submission
+      if (error.code === "23505") {
+        return { error: "Du har redan lagt den här gissningen. Ladda om sidan och försök igen." };
+      }
+      return { error: "Kunde inte spara gissningen. Försök igen." };
+    }
   }
 
   // Decrement used power-ups from user_powerups inventory

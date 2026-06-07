@@ -8,6 +8,7 @@ import {
   evalFirstScorer,
   evalBothTeamsScore,
   evalYellowCards,
+  evalTotalGoalsMatch,
 } from "@/lib/scoring";
 import type { PowerupType } from "@/types/database";
 
@@ -321,6 +322,9 @@ export async function scoreMatchBets(): Promise<{ ok: boolean; scored: number; l
           result = { correct, pointsAwarded: correct ? points_wager : 0 };
           break;
         }
+        case "total_goals_match":
+          result = evalTotalGoalsMatch(bet_value, match.home_score, match.away_score, points_wager, power_up_used, shield_used);
+          break;
         case "both_teams_score":
           result = evalBothTeamsScore(bet_value, match.home_score, match.away_score, points_wager, power_up_used, shield_used);
           break;

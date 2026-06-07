@@ -300,6 +300,54 @@ export function evalYellowCards(
   return { correct: false, pointsAwarded: 0 };
 }
 
+/**
+ * Evaluate a total_goals_match bet (Track A).
+ * User guesses total goals = home_score + away_score.
+ * Exact = 50p · ±1 = 25p · ±2 = 10p · else = 0p
+ */
+export function evalTotalGoalsMatch(
+  betValue: unknown,
+  homeScore: number,
+  awayScore: number,
+  wager: number,
+  powerUp: PowerupType | null,
+  shield: PowerupType | null,
+): EvalResult {
+  const v = betValue as Record<string, unknown> | null;
+  const picked = v?.count as number | undefined;
+
+  if (picked === undefined) {
+    if (shield === "forsakringen") {
+      return { correct: false, pointsAwarded: Math.floor(wager / 2) };
+    }
+    return { correct: false, pointsAwarded: 0 };
+  }
+
+  const actual = homeScore + awayScore;
+  const diff = Math.abs(picked - actual);
+
+  if (diff === 0) {
+    let pts = wager;
+    if (powerUp === "double_or_nothing") pts = pts * 2;
+    else if (powerUp === "sexpoangaren") pts = pts + 600;
+    return { correct: true, pointsAwarded: pts };
+  }
+
+  if (diff === 1) {
+    return { correct: false, pointsAwarded: 25 };
+  }
+
+  if (diff === 2) {
+    return { correct: false, pointsAwarded: 10 };
+  }
+
+  if (shield === "forsakringen") {
+    return { correct: false, pointsAwarded: Math.floor(wager / 2) };
+  }
+
+  return { correct: false, pointsAwarded: 0 };
+}
+
 // ---------------------------------------------------------------------------
 // Potential score interface
 // ---------------------------------------------------------------------------
@@ -317,15 +365,11 @@ export interface PotentialScore {
 }
 
 /**
- * Maximum points a single match bet can yield (all 5 bet types, all correct
- * with the bonus on exact_score).
+ * Maximum points a single match can yield (Track A: 2 bets, both correct, best power-ups).
  *
- *   match_result:     200
- *   exact_score:      400 + 400 (bonus) = 800
- *   first_scorer:     300
- *   both_teams_score: 100
- *   yellow_cards:      75
- *   ─────────────────────
- *   Total:          1 475
+ *   match_result (100p) + double_or_nothing  = 200p
+ *   total_goals_match (50p) + sexpoangaren   = 650p
+ *   ─────────────────────────────────────────────
+ *   Total max:                                 850p
  */
-export const MAX_POINTS_PER_MATCH = 1475;
+export const MAX_POINTS_PER_MATCH = 850;

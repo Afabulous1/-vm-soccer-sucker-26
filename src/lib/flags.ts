@@ -5,10 +5,10 @@ const FLAG_MAP: Record<string, string> = {
   Ecuador: "🇪🇨", Venezuela: "🇻🇪", Chile: "🇨🇱", Paraguay: "🇵🇾",
   Peru: "🇵🇪", Bolivia: "🇧🇴",
   // CONCACAF
-  USA: "🇺🇸", Mexiko: "🇲🇽", Kanada: "🇨🇦", Costa: "🇨🇷",
+  USA: "🇺🇸", Mexiko: "🇲🇽", Kanada: "🇨🇦",
   "Costa Rica": "🇨🇷", Panama: "🇵🇦", Jamaica: "🇯🇲", Jamaika: "🇯🇲",
   Honduras: "🇭🇳", "El Salvador": "🇸🇻", Guatemala: "🇬🇹",
-  "Trinidad och Tobago": "🇹🇹", Kuba: "🇨🇺",
+  Haiti: "🇭🇹", Kuba: "🇨🇺", "Trinidad och Tobago": "🇹🇹",
   // UEFA
   Frankrike: "🇫🇷", Spanien: "🇪🇸", England: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", Tyskland: "🇩🇪",
   Portugal: "🇵🇹", Nederländerna: "🇳🇱", Holland: "🇳🇱", Belgien: "🇧🇪",
@@ -18,6 +18,7 @@ const FLAG_MAP: Record<string, string> = {
   Slovenien: "🇸🇮", Ukraina: "🇺🇦", Skottland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", Wales: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
   Irland: "🇮🇪", Turkiet: "🇹🇷", Tjeckien: "🇨🇿", Albanien: "🇦🇱",
   Grekland: "🇬🇷", Finland: "🇫🇮", Israel: "🇮🇱",
+  "Bosnien-Hercegovina": "🇧🇦",
   // AFC
   Japan: "🇯🇵", Sydkorea: "🇰🇷", Australien: "🇦🇺", Iran: "🇮🇷",
   Saudiarabien: "🇸🇦", Qatar: "🇶🇦", Irak: "🇮🇶", Jordanien: "🇯🇴",
@@ -26,7 +27,12 @@ const FLAG_MAP: Record<string, string> = {
   Marocko: "🇲🇦", Senegal: "🇸🇳", Nigeria: "🇳🇬", Egypten: "🇪🇬",
   Kamerun: "🇨🇲", Ghana: "🇬🇭", Elfenbenskusten: "🇨🇮", Mali: "🇲🇱",
   Tunisien: "🇹🇳", Algeriet: "🇩🇿", Sydafrika: "🇿🇦", Kenya: "🇰🇪",
-  Tanzania: "🇹🇿", Kongo: "🇨🇩", Angola: "🇦🇴",
+  Tanzania: "🇹🇿", "DR Kongo": "🇨🇩", Kongo: "🇨🇬", Angola: "🇦🇴",
+  "Kap Verde": "🇨🇻",
+  // Caribbean / CONCACAF extra
+  Curaçao: "🇨🇼",
+  // Oceania
+  "Nya Zeeland": "🇳🇿",
 };
 
 export function getFlag(team: string): string {

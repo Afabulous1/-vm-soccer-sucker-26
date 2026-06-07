@@ -33,7 +33,9 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
 
   const existingBets = await getMatchBets(id);
   const kickoffDate = new Date(match.kickoff_at);
-  const isLocked = (await getNowServer()) >= kickoffDate;
+  // Lock 15 minutes before kickoff so late bets don't sneak in
+  const lockDate = new Date(kickoffDate.getTime() - 15 * 60 * 1000);
+  const isLocked = (await getNowServer()) >= lockDate;
 
   return (
     <div className="space-y-6">
@@ -64,11 +66,12 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
         <p className="text-green-400/60 text-xs text-center mt-4">{formatKickoff(match.kickoff_at)}</p>
         {!isLocked && (
           <p className="text-violet-300 text-xs text-center mt-1">
-            Låser om <CountdownTimer locksAt={kickoffDate} />
+            Låser om <CountdownTimer locksAt={lockDate} />
+            <span className="text-green-700 ml-1">(15 min före avspark)</span>
           </p>
         )}
         {isLocked && (
-          <p className="text-amber-400 text-xs text-center mt-1">🔒 Gissningar låsta — matchen har börjat</p>
+          <p className="text-amber-400 text-xs text-center mt-1">🔒 Gissningar låsta — 15 min före avspark</p>
         )}
       </div>
 
@@ -78,7 +81,7 @@ export default async function MatchBetPage({ params }: { params: { id: string } 
         awayTeam={match.away_team}
         existingBets={existingBets}
         isLocked={isLocked}
-        lockTime={match.kickoff_at}
+        lockTime={lockDate.toISOString()}
         matchStage={match.stage}
       />
     </div>

@@ -17,6 +17,7 @@ interface PowerUpInfo {
 }
 
 const POWER_UP_INFO: PowerUpInfo[] = [
+  // Track A — Fan powers
   {
     type: "double_or_nothing",
     emoji: "⚡",
@@ -51,6 +52,21 @@ const POWER_UP_INFO: PowerUpInfo[] = [
     name: "Försäkringen",
     description: "Behåll 50% om du har fel",
     isShield: true,
+  },
+  // Track B — Party sabotage powers
+  {
+    type: "sabotage",
+    emoji: "🧊",
+    name: "Sabotage",
+    description: "Nolla en rivales vunna matchgissning — deras poäng för den matchen försvinner",
+    isShield: false,
+  },
+  {
+    type: "punto_bandito",
+    emoji: "🦊",
+    name: "Punto Bandito",
+    description: "Stjäl poängen från matchrundan ledare — en gång per säsong",
+    isShield: false,
   },
 ];
 
@@ -129,7 +145,12 @@ export default function PowerUpSelector({
     }
   }
 
-  const offensivePowerUps = POWER_UP_INFO.filter((p) => !p.isShield);
+  const offensivePowerUps = POWER_UP_INFO.filter(
+    (p) => !p.isShield && p.type !== "sabotage" && p.type !== "punto_bandito"
+  );
+  const sabotageUps = POWER_UP_INFO.filter(
+    (p) => p.type === "sabotage" || p.type === "punto_bandito"
+  );
   const shields = POWER_UP_INFO.filter((p) => p.isShield);
 
   const selectedInfo =
@@ -188,6 +209,45 @@ export default function PowerUpSelector({
           })}
         </div>
       </div>
+
+      {/* Track B sabotage row */}
+      {sabotageUps.some((pu) => (inventory[pu.type] ?? 0) > 0) && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-rose-500 mb-1.5 font-semibold">
+            🔥 PARTY SABOTAGE
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sabotageUps.map((pu) => {
+              const qty = inventory[pu.type] ?? 0;
+              const isSelected = currentPowerUp === pu.type;
+              return (
+                <button
+                  key={pu.type}
+                  type="button"
+                  disabled={disabled || (qty === 0 && !isSelected)}
+                  onClick={() => togglePowerUp(pu.type, false)}
+                  title={`${pu.name} — ${pu.description}${qty === 0 ? " (0 kvar)" : ` (${qty} kvar)`}`}
+                  className={[
+                    "flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all",
+                    isSelected
+                      ? "bg-rose-500 text-white shadow shadow-rose-500/40 scale-105"
+                      : qty === 0
+                        ? "opacity-30 bg-pitch-dark border border-pitch-light/20 text-green-700 cursor-not-allowed"
+                        : "bg-pitch-dark border border-rose-500/40 text-rose-300 hover:border-rose-400/70 hover:text-rose-200",
+                    disabled ? "cursor-not-allowed" : "",
+                  ].join(" ")}
+                >
+                  <span>{pu.emoji}</span>
+                  <span className="hidden sm:inline">{pu.name}</span>
+                  {qty > 0 && (
+                    <span className="text-[10px] opacity-70">×{qty}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Shield row */}
       <div>
