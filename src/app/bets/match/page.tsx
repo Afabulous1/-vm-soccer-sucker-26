@@ -52,7 +52,10 @@ export default async function MatchPage() {
   const allMatches = matches ?? [];
 
   const grouped = allMatches.reduce<Record<string, Match[]>>((acc, m) => {
-    const key = m.group_name ? `Grupp ${m.group_name}` : m.stage;
+    const raw = new Date(m.kickoff_at).toLocaleDateString("sv-SE", {
+      weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Stockholm",
+    });
+    const key = raw.charAt(0).toUpperCase() + raw.slice(1);
     (acc[key] ??= []).push(m);
     return acc;
   }, {});
@@ -92,7 +95,7 @@ export default async function MatchPage() {
             <h2 className="font-bebas text-xl text-gold tracking-widest px-1 flex items-center gap-2">
               {group}
               <span className="text-green-700 font-sans text-xs font-normal normal-case">
-                {groupMatches.length} matcher
+                {groupMatches.length} {groupMatches.length === 1 ? "match" : "matcher"}
               </span>
             </h2>
 
@@ -139,7 +142,12 @@ export default async function MatchPage() {
 
                     {/* Right column */}
                     <div className="text-right shrink-0 space-y-1">
-                      <p className="text-green-600 text-xs">{formatKickoff(m.kickoff_at)}</p>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {m.group_name && (
+                          <span className="text-[10px] text-violet-400/50 font-mono">Grupp {m.group_name}</span>
+                        )}
+                        <p className="text-green-600 text-xs">{formatKickoff(m.kickoff_at)}</p>
+                      </div>
                       <div className="flex items-center justify-end gap-1.5">
                         {hasBet && !isOver && (
                           <span className="text-[10px] text-violet-400 font-semibold">✓ Gissad</span>
