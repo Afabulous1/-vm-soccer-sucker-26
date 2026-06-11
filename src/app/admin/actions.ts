@@ -575,6 +575,64 @@ export async function grantKnockoutPowerups(): Promise<{ ok: boolean; count: num
   return { ok: true, count: userCount, log };
 }
 
+export async function resetMatchScoring(
+  matchId: string,
+): Promise<{ ok: boolean; reset: number; log: string[] }> {
+  const admin = getAdmin();
+  const log: string[] = [];
+
+  // Reset all previously-scored bets for this match
+  const { data: resetBets, error: betsErr } = await admin
+    .from("bets")
+    .update({ is_correct: null, points_awarded: null })
+    .eq("match_id", matchId)
+    .eq("bet_category", "match")
+    .not("is_correct", "is", null)
+    .select("id");
+
+  if (betsErr) return { ok: false, reset: 0, log: [`[ERROR] ${betsErr.message}`] };
+
+  const resetCount = (resetBets ?? []).length;
+  log.push(`[OK] Nollställde ${resetCount} spel för match ${matchId}.`);
+
+  // Mark party_actions as unresolved so they re-fire on next scoring run
+  const { error: partyErr } = await admin
+    .from("party_actions")
+    .update({ resolved: false, points_effect: 0 })
+    .eq("match_id", matchId)
+    .eq("resolved", true);
+
+  if (partyErr) log.push(`[WARN] party_actions: ${partyErr.message}`);
+  else log.push(`[OK] Nollställde party_actions för match ${matchId}.`);
+
+  await rebuildLeaderboard(admin, log);
+  return { ok: true, reset: resetCount, log };
+}
+
+export async function resetTournamentKaos(): Promise<{
+  ok: boolean;
+  reset: number;
+  log: string[];
+}> {
+  const admin = getAdmin();
+  const log: string[] = [];
+
+  const { data: resetBets, error } = await admin
+    .from("bets")
+    .update({ is_correct: null, points_awarded: null })
+    .in("bet_category", ["turnering", "kaos"])
+    .not("is_correct", "is", null)
+    .select("id");
+
+  if (error) return { ok: false, reset: 0, log: [`[ERROR] ${error.message}`] };
+
+  const resetCount = (resetBets ?? []).length;
+  log.push(`[OK] Nollställde ${resetCount} turnering/kaos-spel.`);
+
+  await rebuildLeaderboard(admin, log);
+  return { ok: true, reset: resetCount, log };
+}
+
 export async function overrideMatch(
   matchId: string,
   data: {

@@ -30,35 +30,64 @@ async function main() {
 
   console.log(`  Got ${matches.length} matches`);
 
-  const rows = matches.map((m) => {
+  // Collect admin-locked external_ids so we don't overwrite manual corrections.
+  const { data: lockedRows } = await supabase
+    .from("matches")
+    .select("external_id")
+    .eq("admin_locked", true);
+  const lockedIds = new Set((lockedRows ?? []).map((r) => (r as { external_id: number }).external_id));
+  if (lockedIds.size > 0) {
+    console.log(`  Skipping score/status for ${lockedIds.size} admin-locked match(es).`);
+  }
+
+  // ── Pass 1: fixture metadata for ALL matches (teams, kickoff, stage) ────────
+  const fixtureRows = matches.map((m) => {
     const { stage, group_name } = mapStage(m.stage, m.group);
     return {
       external_id: m.id,
       home_team:   toSwedish(m.homeTeam.name),
       away_team:   toSwedish(m.awayTeam.name),
       kickoff_at:  m.utcDate,
-      status:      mapStatus(m.status),
-      home_score:  m.score.fullTime.home,
-      away_score:  m.score.fullTime.away,
       stage,
       group_name,
       updated_at:  new Date().toISOString(),
     };
   });
 
-  const { error, count } = await supabase
+  const { error: fixtureErr, count } = await supabase
     .from("matches")
-    .upsert(rows, { onConflict: "external_id", count: "exact" });
+    .upsert(fixtureRows, { onConflict: "external_id", count: "exact" });
 
-  if (error) {
-    console.error("Upsert failed:", error.message);
+  if (fixtureErr) {
+    console.error("Fixture upsert failed:", fixtureErr.message);
     process.exit(1);
   }
+  console.log(`Synced fixture data for ${count ?? fixtureRows.length} matches.`);
 
-  console.log(`Synced ${count ?? rows.length} matches.`);
+  // ── Pass 2: scores/status only for non-admin-locked matches ─────────────────
+  const resultRows = matches
+    .filter((m) => !lockedIds.has(m.id))
+    .map((m) => ({
+      external_id: m.id,
+      status:      mapStatus(m.status),
+      home_score:  m.score.fullTime.home,
+      away_score:  m.score.fullTime.away,
+      updated_at:  new Date().toISOString(),
+    }));
+
+  if (resultRows.length > 0) {
+    const { error: resultErr } = await supabase
+      .from("matches")
+      .upsert(resultRows, { onConflict: "external_id" });
+    if (resultErr) {
+      console.error("Score upsert failed:", resultErr.message);
+      process.exit(1);
+    }
+    console.log(`  Synced scores/status for ${resultRows.length} match(es).`);
+  }
 
   // Summary by stage
-  const bystage = rows.reduce<Record<string, number>>((acc, r) => {
+  const bystage = fixtureRows.reduce<Record<string, number>>((acc, r) => {
     acc[r.stage] = (acc[r.stage] ?? 0) + 1;
     return acc;
   }, {});

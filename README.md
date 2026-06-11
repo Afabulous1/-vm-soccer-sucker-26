@@ -126,6 +126,108 @@ Data sync   football-data.org free API → GitHub Actions cron
 
 ---
 
+## Admin Panel — Operator Reference
+
+The admin panel at `/admin` is the control center for scoring, overrides, and corrections. Only the operator needs access — no player-facing features are here.
+
+### How the scoring pipeline works
+
+```
+football-data.org API
+      │
+      ▼
+sync:matches   (fixtures: teams, kickoff, stage)
+sync:results   (scores, first_scorer, cards — started matches only)
+      │
+      ▼
+matches table  (source of truth for scoring)
+      │
+      ▼
+score:bets     (evaluates unevaluated bets → leaderboard rebuild)
+```
+
+GitHub Actions runs steps 2–4 automatically at 06:00 and 18:00 UTC. Use the admin panel for anything the automation can't handle.
+
+---
+
+### Correcting a match result
+
+Use this when the API gave wrong data (wrong first scorer, missing cards, etc.) or when a match was replayed / result amended.
+
+1. Open `/admin` → scroll to **MATCHÖVERSTYRING**
+2. Click the match row to expand it
+3. Edit the fields that are wrong (score, first scorer, card counts, status)
+4. Check **Admin-låst** — this prevents `sync:matches` and `sync:results` from overwriting your correction on the next cron run
+5. Click **SPARA OVERRIDE**
+6. If bets were already scored with the wrong data: click **NOLLSTÄLL SPEL FÖR DENNA MATCH** (requires confirmation)
+   - This resets `is_correct` and `points_awarded` to `null` for all match bets, and marks party actions (sabotage/punto_bandito) as unresolved
+7. Scroll back up to **SNABBPOÄNGSÄTTNING** → click **MATCHSPEL** to re-score with the corrected data
+
+> **Note:** `admin_locked = true` is sticky — the cron job skips that match forever until you uncheck it. Remember to uncheck once the correct data is in the API.
+
+---
+
+### Correcting a tournament or kaos outcome
+
+Use this when you set the wrong winner, top scorer, or yes/no answer, and bets have already been scored.
+
+1. Open `/admin` → find the relevant card under **TURNERINGSGISSNINGAR** or **KAOSGISSNINGAR**
+2. Select the correct value and click **SPARA**
+3. Under **TURNERING + KAOS** in **SNABBPOÄNGSÄTTNING**: click **NOLLSTÄLL ALLA TURNERING/KAOS-SPEL** (requires confirmation)
+   - Resets `is_correct` and `points_awarded` to `null` for all tournament and kaos bets
+4. Click **TURNERING + KAOS** to re-score with the corrected outcome
+
+---
+
+### Correcting a specific bet manually (Supabase SQL)
+
+For one-off fixes that don't fit the UI (e.g. a single bet that was graded wrong due to a data quirk):
+
+```sql
+-- Inspect the bet
+SELECT id, user_id, bet_type, bet_value, is_correct, points_awarded
+FROM bets
+WHERE id = '<bet-uuid>';
+
+-- Manually correct points
+UPDATE bets
+SET is_correct = true,
+    points_awarded = 100
+WHERE id = '<bet-uuid>';
+
+-- Rebuild leaderboard after manual edits (run this last)
+-- (trigger via /admin → any scoring button, or npm run score:bets locally)
+```
+
+---
+
+### Fixture sync behaviour
+
+| Script | What it syncs | Respects admin_locked? |
+|--------|--------------|------------------------|
+| `sync:matches` | Teams, kickoff, stage, **and** scores/status | **Yes** — skips score/status for locked matches |
+| `sync:results` | Scores, first_scorer, cards (started matches only) | **Yes** — skips locked matches entirely |
+| `score:bets` | Evaluates unevaluated bets, rebuilds leaderboard | N/A |
+
+Running `sync:matches` manually is safe to re-run at any time — it's an upsert and will not overwrite admin-locked match scores.
+
+---
+
+### Manual sync commands
+
+```bash
+# Re-sync all fixtures (safe to re-run)
+npm run sync:matches
+
+# Re-sync scores for live/started matches
+npm run sync:results
+
+# Score all unevaluated match bets + rebuild leaderboard
+npm run score:bets
+```
+
+---
+
 ## Prerequisites
 
 1. **Supabase** → [supabase.com](https://supabase.com) (free: 1 project, 500 MB)

@@ -10,6 +10,8 @@ import {
   scoreTournamentKaos,
   overrideMatch,
   grantKnockoutPowerups,
+  resetMatchScoring,
+  resetTournamentKaos,
 } from "./actions";
 import type { AdminMatch, AdminOutcome } from "./page";
 
@@ -552,6 +554,7 @@ function KaosOutcomeCard({
 function MatchOverrideRow({ match }: { match: AdminMatch }) {
   const [expanded, setExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [resetPending, startResetTransition] = useTransition();
   const [homeScore, setHomeScore] = useState(String(match.home_score ?? ""));
   const [awayScore, setAwayScore] = useState(String(match.away_score ?? ""));
   const [firstScorer, setFirstScorer] = useState(match.first_scorer ?? "");
@@ -561,6 +564,7 @@ function MatchOverrideRow({ match }: { match: AdminMatch }) {
   const [adminLocked, setAdminLocked] = useState(match.admin_locked ?? false);
   const [saved, setSaved] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [resetLog, setResetLog] = useState<string[]>([]);
 
   const kickoff = new Date(match.kickoff_at).toLocaleDateString("sv-SE", {
     month: "short",
@@ -738,6 +742,26 @@ function MatchOverrideRow({ match }: { match: AdminMatch }) {
 
           {saved && <p className="text-green-400 text-xs">{saved}</p>}
           {err && <p className="text-red-400 text-xs">{err}</p>}
+
+          <div className="border-t border-pitch-light/10 pt-3">
+            <p className="text-amber-400/70 text-[10px] mb-2">
+              Om spel redan är poängsatta med fel resultat — nollställ dem här, kör sedan &quot;Matchspel&quot; ovan.
+            </p>
+            <button
+              onClick={() => {
+                if (!confirm(`Nollställ alla poängsatta spel för ${match.home_team} vs ${match.away_team}? De kan sedan poängsättas om.`)) return;
+                startResetTransition(async () => {
+                  const r = await resetMatchScoring(match.id);
+                  setResetLog(r.log);
+                });
+              }}
+              disabled={resetPending}
+              className="w-full bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white font-bebas text-sm tracking-widest py-2 rounded-xl transition-all active:scale-95"
+            >
+              {resetPending ? "NOLLSTÄLLER..." : "NOLLSTÄLL SPEL FÖR DENNA MATCH"}
+            </button>
+            <LogOutput lines={resetLog} />
+          </div>
         </div>
       )}
     </div>
@@ -755,10 +779,12 @@ export default function AdminClient({
 }: Props) {
   const [matchLog, setMatchLog] = useState<string[]>([]);
   const [tourLog, setTourLog] = useState<string[]>([]);
+  const [resetTourLog, setResetTourLog] = useState<string[]>([]);
   const [autoLog, setAutoLog] = useState<string[]>([]);
   const [knockoutLog, setKnockoutLog] = useState<string[]>([]);
   const [matchPending, startMatchTransition] = useTransition();
   const [tourPending, startTourTransition] = useTransition();
+  const [resetTourPending, startResetTourTransition] = useTransition();
   const [autoPending, startAutoTransition] = useTransition();
   const [knockoutPending, startKnockoutTransition] = useTransition();
   const [matchesOpen, setMatchesOpen] = useState(false);
@@ -844,6 +870,26 @@ export default function AdminClient({
               Kräver att alla 12 outcomes är satta nedan. Poängsätter turnering + kaosgissningar.
             </p>
             <LogOutput lines={tourLog} />
+
+            <div className="border-t border-pitch-light/10 pt-3">
+              <p className="text-amber-400/70 text-[10px] mb-2">
+                Om ett outcome ändrades efter att spel redan poängsatts — nollställ och kör ovan igen.
+              </p>
+              <button
+                onClick={() => {
+                  if (!confirm("Nollställ ALLA poängsatta turnering- och kaosspel? De kan sedan poängsättas om med uppdaterade outcomes.")) return;
+                  startResetTourTransition(async () => {
+                    const r = await resetTournamentKaos();
+                    setResetTourLog(r.log);
+                  });
+                }}
+                disabled={resetTourPending}
+                className="w-full bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white font-bebas text-sm tracking-widest py-2 rounded-xl transition-all active:scale-95"
+              >
+                {resetTourPending ? "NOLLSTÄLLER..." : "NOLLSTÄLL ALLA TURNERING/KAOS-SPEL"}
+              </button>
+              <LogOutput lines={resetTourLog} />
+            </div>
           </div>
         </div>
       </section>
