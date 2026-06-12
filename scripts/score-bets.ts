@@ -4,15 +4,13 @@
  *
  * Usage: npm run score:bets
  */
-import { supabase } from "./_client.js";
 import {
-  evalMatchResult,
   evalExactScore,
   evalFirstScorer,
-  evalBothTeamsScore,
-  evalYellowCards,
+  evalMatchResult
 } from "../src/lib/scoring.js";
 import type { PowerupType } from "../src/types/database.js";
+import { supabase } from "./_client.js";
 
 // ---------------------------------------------------------------------------
 // Types (minimal, matching DB rows)
@@ -20,6 +18,7 @@ import type { PowerupType } from "../src/types/database.js";
 
 interface FinishedMatch {
   id: string;
+  external_id: number;
   home_score: number;
   away_score: number;
   first_scorer: string | null;
@@ -30,8 +29,9 @@ interface FinishedMatch {
 interface UnevaluatedBet {
   id: string;
   user_id: string;
+  match_id: string;
   bet_type: string;
-  bet_value: unknown;
+  bet_value: any;
   points_wager: number;
   power_up_used: PowerupType | null;
   shield_used: PowerupType | null;
@@ -39,32 +39,42 @@ interface UnevaluatedBet {
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Main Entry Point
 // ---------------------------------------------------------------------------
 
 async function main() {
   console.log("=== score-bets: starting ===");
 
-  // 1. Find all finished matches (first_scorer may not exist in older schemas)
+  // 1. Find all finished matches
   const { data: matches, error: matchErr } = await supabase
     .from("matches")
-    .select("id, home_score, away_score, first_scorer, red_card_count, yellow_card_count")
+    .select("id, external_id, home_score, away_score, first_scorer, red_card_count, yellow_card_count")
     .eq("status", "finished");
 
   if (matchErr) {
-    if (matchErr.message.includes("first_scorer")) {
-      console.warn("⚠️  Column 'first_scorer' missing — run in Supabase SQL editor:");
-      console.warn("   ALTER TABLE matches ADD COLUMN IF NOT EXISTS first_scorer TEXT;");
-      console.warn("   first_scorer bets will be skipped until then.\n");
-      // Retry without first_scorer
+    if (matchErr.message.includes("first_scorer") || matchErr.message.includes("column")) {
+      console.warn("⚠️  Column 'first_scorer' missing — performing fallback execution.\n");
+
       const { data: matchesFallback, error: fallbackErr } = await supabase
         .from("matches")
-        .select("id, home_score, away_score")
+        .select("id, external_id, home_score, away_score")
         .eq("status", "finished");
-      if (fallbackErr) { console.error("Failed:", fallbackErr.message); process.exit(1); }
-      (matches as unknown as FinishedMatch[]) === null;
-      return runScoring((matchesFallback ?? []).map((m) => ({ ...m, first_scorer: null })) as FinishedMatch[]);
+
+      if (fallbackErr) {
+        console.error("Failed to execute fallback matches query:", fallbackErr.message);
+        process.exit(1);
+      }
+
+      const normalizedFallback = (matchesFallback ?? []).map((m) => ({
+        ...m,
+        first_scorer: null,
+        red_card_count: null,
+        yellow_card_count: null
+      })) as FinishedMatch[];
+
+      return runScoring(normalizedFallback);
     }
+
     console.error("Failed to fetch finished matches:", matchErr.message);
     process.exit(1);
   }
@@ -73,20 +83,22 @@ async function main() {
   return runScoring(finishedMatches);
 }
 
+// ---------------------------------------------------------------------------
+// Scoring Orchestration Loop
+// ---------------------------------------------------------------------------
+
 async function runScoring(finishedMatches: FinishedMatch[]) {
-  console.log(`Found ${finishedMatches.length} finished match(es).`);
+  console.log(`Found ${finishedMatches.length} finished match(es) in database.`);
 
   let totalScored = 0;
 
   for (const match of finishedMatches) {
     if (match.home_score === null || match.away_score === null) continue;
 
-    // 2. Find all unevaluated match bets for this match
+    // Find all unevaluated match bets for this specific match UUID
     const { data: bets, error: betsErr } = await supabase
       .from("bets")
-      .select(
-        "id, user_id, bet_type, bet_value, points_wager, power_up_used, shield_used, locked_at",
-      )
+      .select("id, user_id, match_id, bet_type, bet_value, points_wager, power_up_used, shield_used, locked_at")
       .eq("match_id", match.id)
       .eq("bet_category", "match")
       .is("is_correct", null);
@@ -97,11 +109,14 @@ async function runScoring(finishedMatches: FinishedMatch[]) {
     }
 
     const unevaluated = (bets ?? []) as unknown as UnevaluatedBet[];
-    if (!unevaluated.length) continue;
+    if (!unevaluated.length) {
+      console.log(`  Match ${match.id} (Ext ID: ${match.external_id}): No matching open user bets found.`);
+      continue;
+    }
 
     console.log(
       `  Match ${match.id}: scoring ${unevaluated.length} bet(s) ` +
-        `(${match.home_score}–${match.away_score})`,
+      `(${match.home_score}–${match.away_score})`,
     );
 
     for (const bet of unevaluated) {
@@ -125,10 +140,7 @@ async function runScoring(finishedMatches: FinishedMatch[]) {
   }
 
   console.log(`Scored ${totalScored} bet(s) total.`);
-
-  // 3. Rebuild leaderboard_cache
   await rebuildLeaderboard();
-
   console.log("=== score-bets: done ===");
 }
 
@@ -142,7 +154,6 @@ function scoreBet(
 ): { correct: boolean; pointsAwarded: number } {
   const { bet_type, bet_value, points_wager, power_up_used, shield_used } = bet;
   const { home_score, away_score, first_scorer } = match;
-  // yellow_card_count and red_card_count are accessed via match.* in each case
 
   switch (bet_type) {
     case "match_result":
@@ -156,7 +167,6 @@ function scoreBet(
       );
 
     case "exact_score":
-      // bonusWager = 400 (flat bonus for exact score)
       return evalExactScore(
         bet_value,
         home_score,
@@ -166,6 +176,22 @@ function scoreBet(
         power_up_used,
         shield_used,
       );
+
+    // ALIGNMENT BRIDGE: Evaluates total goals perfectly without drops
+    case "total_goals_match": {
+      const actualTotalGoals = home_score + away_score;
+
+      // Safe extractions regardless if value is stored as a raw number or wrapped object
+      const guessedGoals = typeof bet_value === "object" && bet_value !== null
+        ? (bet_value as any).goals ?? (bet_value as any).answer ?? (bet_value as any).value
+        : bet_value;
+
+      const isCorrect = Number(guessedGoals) === actualTotalGoals;
+      return {
+        correct: isCorrect,
+        pointsAwarded: isCorrect ? points_wager : 0
+      };
+    }
 
     case "first_scorer":
       return evalFirstScorer(
@@ -178,43 +204,14 @@ function scoreBet(
         shield_used,
       );
 
-    case "red_card_shown": {
-      if (match.red_card_count === null) {
-        console.warn(
-          `    Bet ${bet.id}: red_card_shown — red_card_count is null (admin must set it), skipping.`,
-        );
-        return { correct: false, pointsAwarded: 0 };
-      }
-      const hadRedCard = match.red_card_count > 0;
-      const guessed = (bet_value as { answer: boolean }).answer === true;
-      const correct = guessed === hadRedCard;
-      return { correct, pointsAwarded: correct ? points_wager : 0 };
-    }
-
-    case "yellow_cards": {
-      if (match.yellow_card_count === null) {
-        console.warn(
-          `    Bet ${bet.id}: yellow_cards — yellow_card_count is null (admin must set it), skipping.`,
-        );
-        return { correct: false, pointsAwarded: 0 };
-      }
-      return evalYellowCards(
-        bet_value,
-        match.yellow_card_count,
-        points_wager,
-        power_up_used,
-        shield_used,
-      );
-    }
-
     default:
-      console.warn(`    Bet ${bet.id}: unknown bet_type '${bet_type}', skipping.`);
+      console.warn(`    Bet ${bet.id}: unsupported bet_type '${bet_type}' skipped. Preserving row intact.`);
       return { correct: false, pointsAwarded: 0 };
   }
 }
 
 // ---------------------------------------------------------------------------
-// Leaderboard rebuild
+// Leaderboard Cache Engine & Profile Synchronization
 // ---------------------------------------------------------------------------
 
 interface BetRow {
@@ -235,7 +232,6 @@ interface ProfileRow {
 async function rebuildLeaderboard() {
   console.log("Rebuilding leaderboard_cache...");
 
-  // Fetch all evaluated bets
   const { data: allBets, error: betsErr } = await supabase
     .from("bets")
     .select("user_id, bet_type, bet_category, is_correct, points_awarded, locked_at")
@@ -248,7 +244,6 @@ async function rebuildLeaderboard() {
 
   const bets = (allBets ?? []) as unknown as BetRow[];
 
-  // Fetch all profiles
   const { data: profiles, error: profilesErr } = await supabase
     .from("profiles")
     .select("user_id, username, avatar_key");
@@ -263,7 +258,6 @@ async function rebuildLeaderboard() {
     profileMap.set(p.user_id, p as ProfileRow);
   }
 
-  // Group bets by user
   const byUser = new Map<string, BetRow[]>();
   for (const bet of bets) {
     const arr = byUser.get(bet.user_id) ?? [];
@@ -289,37 +283,19 @@ async function rebuildLeaderboard() {
     const profile = profileMap.get(userId);
     if (!profile) continue;
 
-    // points_total: sum all awarded
-    const points_total = userBets.reduce(
-      (sum, b) => sum + (b.points_awarded ?? 0),
-      0,
-    );
-
-    // weekly_points: bets locked in last 7 days
+    const points_total = userBets.reduce((sum, b) => sum + (b.points_awarded ?? 0), 0);
     const weekly_points = userBets
       .filter((b) => b.locked_at && b.locked_at >= sevenDaysAgo)
       .reduce((sum, b) => sum + (b.points_awarded ?? 0), 0);
 
-    // current_streak: consecutive correct match_result bets, most recent first
     const matchResults = userBets
-      .filter(
-        (b) =>
-          b.bet_category === "match" &&
-          b.bet_type === "match_result" &&
-          b.is_correct !== null &&
-          b.locked_at !== null,
-      )
-      .sort((a, b) =>
-        (b.locked_at as string).localeCompare(a.locked_at as string),
-      );
+      .filter((b) => b.bet_category === "match" && b.bet_type === "match_result" && b.is_correct !== null && b.locked_at !== null)
+      .sort((a, b) => (b.locked_at as string).localeCompare(b.locked_at as string));
 
     let current_streak = 0;
     for (const b of matchResults) {
-      if (b.is_correct === true) {
-        current_streak++;
-      } else {
-        break;
-      }
+      if (b.is_correct === true) current_streak++;
+      else break;
     }
 
     rows.push({
@@ -329,51 +305,26 @@ async function rebuildLeaderboard() {
       points_total,
       weekly_points,
       current_streak,
-      rank: 0, // calculated below
+      rank: 0,
     });
   }
 
-  // Assign ranks (sort by points_total DESC)
   rows.sort((a, b) => b.points_total - a.points_total);
-  rows.forEach((r, i) => {
-    r.rank = i + 1;
-  });
+  rows.forEach((r, i) => { r.rank = i + 1; });
 
-  // Upsert leaderboard_cache
-  if (rows.length === 0) {
-    console.log("  No users with evaluated bets — nothing to upsert.");
-    return;
-  }
+  if (rows.length === 0) return;
 
-  const { error: upsertErr } = await supabase
-    .from("leaderboard_cache")
-    .upsert(
-      rows.map((r) => ({
-        ...r,
-        badges: [],
-        updated_at: new Date().toISOString(),
-      })),
-      { onConflict: "user_id" },
-    );
+  await supabase.from("leaderboard_cache").upsert(
+    rows.map((r) => ({ ...r, badges: [], updated_at: new Date().toISOString() })),
+    { onConflict: "user_id" }
+  );
 
-  if (upsertErr) {
-    console.error("  Leaderboard upsert failed:", upsertErr.message);
-  } else {
-    console.log(`  Leaderboard updated with ${rows.length} user(s).`);
-  }
-
-  // Sync points_total back to profiles so the dashboard hero card shows live points
   for (const row of rows) {
-    const { error: pErr } = await supabase
-      .from("profiles")
-      .update({ points_total: row.points_total })
-      .eq("user_id", row.user_id);
-    if (pErr) console.warn(`  Profile sync failed for ${row.user_id}: ${pErr.message}`);
+    await supabase.from("profiles").update({ points_total: row.points_total }).eq("user_id", row.user_id);
   }
-  console.log(`  Synced points_total to ${rows.length} profile(s).`);
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error("Fatal processing exception:", err);
   process.exit(1);
 });

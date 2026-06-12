@@ -7,7 +7,7 @@
  *
  * Usage: npm run sync:results
  */
-import { fdoFetch, supabase, mapStatus } from "./_client.js";
+import { fdoFetch, mapStatus, supabase } from "./_client.js";
 
 interface FdoMatch {
   id: number;
@@ -81,22 +81,33 @@ async function main() {
       continue;
     }
 
+    const calculatedStatus = mapStatus(apiMatch.status);
+    const homeScore = apiMatch.score.fullTime.home;
+    const awayScore = apiMatch.score.fullTime.away;
+
+    // DATA MAP PROTECTION: Don't set a match to finished unless scores are validated
+    let verifiedStatus = calculatedStatus;
+    if (calculatedStatus === "finished" && (homeScore === null || awayScore === null)) {
+      console.warn(`  Match ${dbMatch.external_id} marked complete by API but goals count missing. Holding status as live.`);
+      verifiedStatus = "live";
+    }
+
+    // Perform cleanly typed update interaction directly matching table constraints
     const { error } = await supabase
       .from("matches")
       .update({
-        status:     mapStatus(apiMatch.status),
-        home_score: apiMatch.score.fullTime.home,
-        away_score: apiMatch.score.fullTime.away,
+        status: verifiedStatus,
+        home_score: homeScore,
+        away_score: awayScore,
         updated_at: new Date().toISOString(),
-      } as never)
+      })
       .eq("id", dbMatch.id);
 
     if (error) {
       console.warn(`  Match ${dbMatch.external_id}: ${error.message}`);
     } else {
-      const score = apiMatch.score.fullTime;
-      const scoreStr = score.home !== null ? `${score.home}–${score.away}` : "tba";
-      console.log(`  Match ${dbMatch.external_id}: ${mapStatus(apiMatch.status)} ${scoreStr}`);
+      const scoreStr = homeScore !== null ? `${homeScore}–${awayScore}` : "tba";
+      console.log(`  Match ${dbMatch.external_id}: ${verifiedStatus} ${scoreStr}`);
       updated++;
     }
   }
