@@ -11,8 +11,8 @@ interface FdoMatch {
   status: string;
   stage: string;
   group: string | null;
-  homeTeam: { name: string };
-  awayTeam: { name: string };
+  homeTeam: { name: string | null };
+  awayTeam: { name: string | null };
   score: {
     fullTime: { home: number | null; away: number | null };
   };
@@ -26,9 +26,13 @@ async function main() {
   console.log("Fetching WC 2026 fixtures from football-data.org...");
 
   const data = await fdoFetch<FdoMatchesResponse>("/competitions/WC/matches?season=2026");
-  const matches = data.matches;
+  const allMatches = data.matches;
+  console.log(`  Got ${allMatches.length} matches from API`);
 
-  console.log(`  Got ${matches.length} matches`);
+  // Skip knockout placeholders where teams haven't been determined yet.
+  const matches = allMatches.filter((m) => m.homeTeam?.name && m.awayTeam?.name);
+  const skipped = allMatches.length - matches.length;
+  if (skipped > 0) console.log(`  Skipping ${skipped} placeholder match(es) with TBD teams.`);
 
   // Collect admin-locked external_ids so we don't overwrite manual corrections.
   const { data: lockedRows } = await supabase

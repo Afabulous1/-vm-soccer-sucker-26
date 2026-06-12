@@ -103,6 +103,8 @@ export function mapStatus(s: string): "scheduled" | "live" | "finished" | "postp
 export function mapStage(stage: string, group: string | null) {
   const map: Record<string, string> = {
     GROUP_STAGE:    "Gruppspel",
+    ROUND_OF_32:    "Omgång 32",   // WC 2026 new round (48 teams)
+    LAST_32:        "Omgång 32",   // alternate API key
     LAST_16:        "Åttondelsfinaler",
     QUARTER_FINALS: "Kvartsfinaler",
     SEMI_FINALS:    "Semifinaler",
