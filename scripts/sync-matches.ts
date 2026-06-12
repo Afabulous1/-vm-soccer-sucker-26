@@ -69,10 +69,13 @@ async function main() {
   console.log(`Synced fixture data for ${count ?? fixtureRows.length} matches.`);
 
   // ── Pass 2: scores/status only for non-admin-locked matches ─────────────────
+  // home_team/away_team included so a new INSERT (if external_id is missing) satisfies NOT NULL.
   const resultRows = matches
     .filter((m) => !lockedIds.has(m.id))
     .map((m) => ({
       external_id: m.id,
+      home_team:   toSwedish(m.homeTeam.name!),
+      away_team:   toSwedish(m.awayTeam.name!),
       status:      mapStatus(m.status),
       home_score:  m.score.fullTime.home,
       away_score:  m.score.fullTime.away,

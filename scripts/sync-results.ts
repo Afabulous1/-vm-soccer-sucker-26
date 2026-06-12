@@ -23,33 +23,21 @@ interface FdoMatchDetail {
     fullTime:  { home: number | null; away: number | null };
     halfTime:  { home: number | null; away: number | null };
   };
-  goals: FdoGoal[];
-  bookings: FdoBooking[];
-}
-
-interface FdoMatchesResponse {
-  matches: Array<{ id: number; status: string }>;
+  goals:    FdoGoal[]    | null;
+  bookings: FdoBooking[] | null;
 }
 
 async function main() {
-  // Fetch matches that are not yet settled
-  const { data: pending, error: fetchErr } = await supabase
-    .from("matches")
-    .select("id, external_id, status, admin_locked")
-    .in("status", ["scheduled", "live"])
-    .order("kickoff_at", { ascending: true });
-
-  if (fetchErr) { console.error(fetchErr.message); process.exit(1); }
-  if (!pending?.length) { console.log("No pending matches to update."); return; }
-
-  // Only bother with matches that have actually started (kickoff_at <= now + 2h buffer)
+  // Only fetch matches that have started (kickoff_at <= now + 2h buffer)
   const cutoff = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-  const { data: started } = await supabase
+  const { data: started, error: fetchErr } = await supabase
     .from("matches")
     .select("id, external_id, admin_locked")
     .in("status", ["scheduled", "live"])
-    .lte("kickoff_at", cutoff);
+    .lte("kickoff_at", cutoff)
+    .order("kickoff_at", { ascending: true });
 
+  if (fetchErr) { console.error(fetchErr.message); process.exit(1); }
   if (!started?.length) { console.log("No matches started yet."); return; }
 
   console.log(`Fetching details for ${started.length} match(es)...`);
@@ -64,7 +52,7 @@ async function main() {
       const detail = await fdoFetch<FdoMatchDetail>(`/matches/${match.external_id}`);
 
       // Determine first scorer (skip own goals for the bet — unlikely to be guessed)
-      const firstGoal = detail.goals
+      const firstGoal = (detail.goals ?? [])
         .filter((g) => g.type !== "OWN" && g.scorer)
         .sort((a, b) => a.minute - b.minute)[0];
 
