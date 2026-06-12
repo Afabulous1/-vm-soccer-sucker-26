@@ -1,93 +1,108 @@
 /**
- * Updates scores, status, and first_scorer for matches that are live or recently finished.
- * Run this every few minutes during the tournament, or once after each match.
+ * Updates scores and status for matches that are live or recently finished.
+ * Uses the competition endpoint (free tier) — one API call for all matches.
+ *
+ * NOTE: first_scorer and card counts require a paid football-data.org plan
+ * (/matches/{id} endpoint). Set these manually via the admin panel if needed.
+ *
  * Usage: npm run sync:results
  */
 import { fdoFetch, supabase, mapStatus } from "./_client.js";
 
-interface FdoGoal {
-  minute: number;
-  type: string; // "REGULAR" | "OWN" | "PENALTY"
-  scorer: { name: string } | null;
-  team: { name: string };
-}
-
-interface FdoBooking {
-  card: "YELLOW" | "RED" | "YELLOW_RED";
-}
-
-interface FdoMatchDetail {
+interface FdoMatch {
   id: number;
   status: string;
   score: {
-    fullTime:  { home: number | null; away: number | null };
-    halfTime:  { home: number | null; away: number | null };
+    fullTime: { home: number | null; away: number | null };
   };
-  goals:    FdoGoal[]    | null;
-  bookings: FdoBooking[] | null;
 }
 
-async function main() {
-  // Only fetch matches that have started (kickoff_at <= now + 2h buffer)
+interface FdoMatchesResponse {
+  matches: FdoMatch[];
+}
+
+interface DbMatch {
+  id: string;
+  external_id: number;
+  admin_locked?: boolean;
+}
+
+async function fetchDbStartedMatches(): Promise<DbMatch[]> {
   const cutoff = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-  const { data: started, error: fetchErr } = await supabase
+
+  // Try with admin_locked (migration 005); fall back if column doesn't exist yet.
+  const { data, error } = await supabase
     .from("matches")
     .select("id, external_id, admin_locked")
     .in("status", ["scheduled", "live"])
     .lte("kickoff_at", cutoff)
     .order("kickoff_at", { ascending: true });
 
-  if (fetchErr) { console.error(fetchErr.message); process.exit(1); }
-  if (!started?.length) { console.log("No matches started yet."); return; }
+  if (!error) return (data ?? []) as DbMatch[];
 
-  console.log(`Fetching details for ${started.length} match(es)...`);
+  if (error.message.includes("admin_locked") || error.message.includes("column")) {
+    console.warn("  admin_locked column missing (run migration 005) — treating all as unlocked.");
+    const { data: fallback, error: fallbackErr } = await supabase
+      .from("matches")
+      .select("id, external_id")
+      .in("status", ["scheduled", "live"])
+      .lte("kickoff_at", cutoff)
+      .order("kickoff_at", { ascending: true });
+    if (fallbackErr) { console.error(fallbackErr.message); process.exit(1); }
+    return (fallback ?? []) as DbMatch[];
+  }
+
+  console.error(error.message);
+  process.exit(1);
+}
+
+async function main() {
+  // 1. Fetch all WC match scores in one API call (free tier compatible)
+  console.log("Fetching all WC 2026 scores from football-data.org...");
+  const apiData = await fdoFetch<FdoMatchesResponse>("/competitions/WC/matches?season=2026");
+  const apiById = new Map(apiData.matches.map((m) => [m.id, m]));
+  console.log(`  Got ${apiData.matches.length} matches from API.`);
+
+  // 2. Find DB matches that have started and aren't yet settled
+  const dbMatches = await fetchDbStartedMatches();
+  if (!dbMatches.length) { console.log("No matches started yet."); return; }
+  console.log(`Updating ${dbMatches.length} started match(es)...`);
 
   let updated = 0;
-  for (const match of started) {
-    if ((match as { admin_locked?: boolean }).admin_locked === true) {
-      console.log(`  Match ${match.external_id}: admin_locked=true — skipping.`);
+  for (const dbMatch of dbMatches) {
+    if (dbMatch.admin_locked === true) {
+      console.log(`  Match ${dbMatch.external_id}: admin_locked — skipping.`);
       continue;
     }
-    try {
-      const detail = await fdoFetch<FdoMatchDetail>(`/matches/${match.external_id}`);
 
-      // Determine first scorer (skip own goals for the bet — unlikely to be guessed)
-      const firstGoal = (detail.goals ?? [])
-        .filter((g) => g.type !== "OWN" && g.scorer)
-        .sort((a, b) => a.minute - b.minute)[0];
+    const apiMatch = apiById.get(dbMatch.external_id);
+    if (!apiMatch) {
+      console.warn(`  Match ${dbMatch.external_id}: not found in API response.`);
+      continue;
+    }
 
-      const redCardCount = (detail.bookings ?? []).filter(
-        (b) => b.card === "RED" || b.card === "YELLOW_RED",
-      ).length;
+    const { error } = await supabase
+      .from("matches")
+      .update({
+        status:     mapStatus(apiMatch.status),
+        home_score: apiMatch.score.fullTime.home,
+        away_score: apiMatch.score.fullTime.away,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", dbMatch.id);
 
-      const yellowCardCount = (detail.bookings ?? []).filter(
-        (b) => b.card === "YELLOW",
-      ).length;
-
-      const { error } = await supabase
-        .from("matches")
-        .update({
-          status:            mapStatus(detail.status),
-          home_score:        detail.score.fullTime.home,
-          away_score:        detail.score.fullTime.away,
-          first_scorer:      firstGoal?.scorer?.name ?? null,
-          red_card_count:    redCardCount,
-          yellow_card_count: yellowCardCount,
-          updated_at:        new Date().toISOString(),
-        } as never)
-        .eq("id", match.id);
-
-      if (error) console.warn(`  Match ${match.external_id}: ${error.message}`);
-      else updated++;
-
-      // Respect rate limit (10 req/min free tier)
-      await new Promise((r) => setTimeout(r, 6100));
-    } catch (err) {
-      console.warn(`  Match ${match.external_id} fetch failed:`, (err as Error).message);
+    if (error) {
+      console.warn(`  Match ${dbMatch.external_id}: ${error.message}`);
+    } else {
+      const score = apiMatch.score.fullTime;
+      const scoreStr = score.home !== null ? `${score.home}–${score.away}` : "tba";
+      console.log(`  Match ${dbMatch.external_id}: ${mapStatus(apiMatch.status)} ${scoreStr}`);
+      updated++;
     }
   }
 
-  console.log(`Updated ${updated}/${started.length} matches.`);
+  console.log(`\nUpdated ${updated}/${dbMatches.length} matches.`);
+  console.log("Note: first_scorer and card counts must be set manually via /admin (paid API tier required).");
 }
 
 main().catch(console.error);

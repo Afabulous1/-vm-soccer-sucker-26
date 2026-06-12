@@ -94,11 +94,11 @@ Data sync   football-data.org free API → GitHub Actions cron
 ## Operator Checklist
 
 ### Before June 8 — Setup (do this once)
-- [ ] Create Supabase project → run all migrations in order (001–006)
+- [ ] Create Supabase project → run all migrations in order (001–009) in the SQL editor
 - [ ] Reload schema cache: Dashboard → Project Settings → API → Reload schema cache
 - [ ] Deploy to Vercel → add the 4 environment variables
 - [ ] Add the 3 GitHub Secrets for Actions
-- [ ] Go to `/dev` → click "Seeda ALLA 72 gruppspelsmatcher" to seed all fixtures
+- [ ] Run `npm run sync:matches` locally to seed all 72 fixtures from the API
 - [ ] Share the Vercel URL with your friends
 
 ### June 8 — Betting opens automatically
@@ -109,121 +109,145 @@ Data sync   football-data.org free API → GitHub Actions cron
 - No action needed — tournament + party bets lock automatically
 - Match bets keep working match-by-match until kickoff
 
-### June 10 onward — GitHub Actions takes over
-- Automatic — runs twice daily through July 19
-- If scores look wrong: run `npm run sync:results` manually
-- If leaderboard isn't updating: run `npm run score:bets` manually
+### June 10 onward — GitHub Actions takes over (automatic)
+- Cron runs at **06:00 and 18:00 UTC** daily through July 19
+- Each run: syncs fixtures → syncs scores → scores all pending bets → rebuilds leaderboard
+- Players see updated points and leaderboard automatically, no admin action needed for standard bets
 
-### Admin panel (`/admin`)
-- Score match bets after each game
-- Set correct answers for tournament/party bets
-- Override locked match results if needed
+### After each match — what YOU need to do manually
+The cron handles scores automatically. These three things require a human:
+
+1. **First scorer** — go to `/admin` → MATCHÖVERSTYRING → expand the match → enter the player name → SPARA OVERRIDE
+2. **Card counts** (red/yellow) — same place, enter red_card_count and yellow_card_count
+3. **Re-score card/scorer bets** — after entering the above, click **MATCHSPEL** in SNABBPOÄNGSÄTTNING
+
+> **Why manual?** The free football-data.org tier does not provide goal scorers or booking details. Only scores and match status sync automatically.
+
+### At the knockout phase start
+- Go to `/admin` → **PARTY POWERS** → click **BEVILJA KNOCKOUT-POWERS** to give all players +5 sabotage and +5 punto_bandito
+
+### End of tournament — scoring the long bets
+All tournament and kaos bets must be scored manually once outcomes are known:
+
+1. `/admin` → **TURNERINGSGISSNINGAR** — set all 6 outcomes (VM-vinnare, finalister, skyttekung, dödsgrupp, total mål, flest röda kort)
+2. `/admin` → **KAOSGISSNINGAR** — set all 6 yes/no outcomes (verify each manually — see notes in UI)
+3. Click **AUTO-BERÄKNA** to auto-fill anything derivable from match data
+4. Click **TURNERING + KAOS** to score all pending bets
+5. Reveal the leaderboard 🏆
 
 ### July 19 — WC Final
-- Verify final scores synced
-- Run `/admin` → score all remaining bets
-- Reveal the leaderboard 🏆
+- Verify final scores synced (check `/admin` → MATCHÖVERSTYRING)
+- Complete steps above for long bets
+- Final leaderboard is live automatically after scoring
 
 ---
 
 ## Admin Panel — Operator Reference
 
-The admin panel at `/admin` is the control center for scoring, overrides, and corrections. Only the operator needs access — no player-facing features are here.
+The admin panel at `/admin` is the control center for scoring, overrides, and corrections.
 
-### How the scoring pipeline works
+### What is automatic vs. manual
+
+| Action | Automatic | Manual via `/admin` |
+|--------|-----------|---------------------|
+| Fixture kickoff times and stages | ✅ Cron | — |
+| Match scores and status | ✅ Cron | Override if wrong |
+| Score 1X2, exact score, total goals bets | ✅ Cron | — |
+| Score both-teams-score bets | ✅ Cron | — |
+| First scorer | ❌ Paid API tier required | Enter manually → re-score |
+| Red/yellow card counts | ❌ Paid API tier required | Enter manually → re-score |
+| Tournament bets (vm_winner etc.) | ❌ Human judgment required | Set outcomes → score |
+| Kaos bets (yes/no predictions) | ❌ Human judgment required | Verify → set → score |
+| Leaderboard rebuild | ✅ After every scoring run | — |
+
+### How the pipeline works
 
 ```
-football-data.org API
-      │
-      ▼
-sync:matches   (fixtures: teams, kickoff, stage)
-sync:results   (scores, first_scorer, cards — started matches only)
-      │
-      ▼
-matches table  (source of truth for scoring)
-      │
-      ▼
-score:bets     (evaluates unevaluated bets → leaderboard rebuild)
+GitHub Actions (06:00 + 18:00 UTC)
+  │
+  ├── sync:matches  →  updates kickoff times, teams, stage in matches table
+  ├── sync:results  →  updates status + scores for started matches
+  └── score:bets    →  evaluates is_correct=null bets → rebuilds leaderboard
+                                         │
+                                         └── players see updated points instantly
 ```
-
-GitHub Actions runs steps 2–4 automatically at 06:00 and 18:00 UTC. Use the admin panel for anything the automation can't handle.
 
 ---
 
-### Correcting a match result
+### After each match — step by step
 
-Use this when the API gave wrong data (wrong first scorer, missing cards, etc.) or when a match was replayed / result amended.
+**Standard bets (1X2, exact score, total goals) — fully automatic, no action needed.**
 
-1. Open `/admin` → scroll to **MATCHÖVERSTYRING**
-2. Click the match row to expand it
-3. Edit the fields that are wrong (score, first scorer, card counts, status)
-4. Check **Admin-låst** — this prevents `sync:matches` and `sync:results` from overwriting your correction on the next cron run
+For first-scorer and card bets:
+
+1. Open `/admin` → **MATCHÖVERSTYRING** → find the match → expand it
+2. Enter **Första målskytt** (player name, exactly as listed in FAMOUS_PLAYERS or free text)
+3. Enter **Röda kort** and **Gula kort** totals
+4. Tick **Admin-låst** to lock out the next cron sync from overwriting
 5. Click **SPARA OVERRIDE**
-6. If bets were already scored with the wrong data: click **NOLLSTÄLL SPEL FÖR DENNA MATCH** (requires confirmation)
-   - This resets `is_correct` and `points_awarded` to `null` for all match bets, and marks party actions (sabotage/punto_bandito) as unresolved
-7. Scroll back up to **SNABBPOÄNGSÄTTNING** → click **MATCHSPEL** to re-score with the corrected data
+6. Scroll up → **SNABBPOÄNGSÄTTNING** → click **MATCHSPEL**
+   - This scores all pending bets including the first-scorer and card bets just entered
+   - Leaderboard rebuilds automatically
 
-> **Note:** `admin_locked = true` is sticky — the cron job skips that match forever until you uncheck it. Remember to uncheck once the correct data is in the API.
+---
+
+### Correcting a wrong match result
+
+If the API synced wrong data and bets have already been scored with it:
+
+1. `/admin` → MATCHÖVERSTYRING → expand match → fix the values → tick **Admin-låst** → **SPARA OVERRIDE**
+2. Click **NOLLSTÄLL SPEL FÖR DENNA MATCH** (confirmation required) — resets all scored bets for this match
+3. Click **MATCHSPEL** to re-score with the corrected data
+
+> Untick **Admin-låst** once the API data is correct, so future cron runs can sync normally.
 
 ---
 
 ### Correcting a tournament or kaos outcome
 
-Use this when you set the wrong winner, top scorer, or yes/no answer, and bets have already been scored.
+If an outcome was set wrong after bets were already scored:
 
-1. Open `/admin` → find the relevant card under **TURNERINGSGISSNINGAR** or **KAOSGISSNINGAR**
-2. Select the correct value and click **SPARA**
-3. Under **TURNERING + KAOS** in **SNABBPOÄNGSÄTTNING**: click **NOLLSTÄLL ALLA TURNERING/KAOS-SPEL** (requires confirmation)
-   - Resets `is_correct` and `points_awarded` to `null` for all tournament and kaos bets
-4. Click **TURNERING + KAOS** to re-score with the corrected outcome
+1. `/admin` → find the outcome card → update the value → **SPARA**
+2. Click **NOLLSTÄLL ALLA TURNERING/KAOS-SPEL** (confirmation required)
+3. Click **TURNERING + KAOS** to re-score everything
 
 ---
 
-### Correcting a specific bet manually (Supabase SQL)
-
-For one-off fixes that don't fit the UI (e.g. a single bet that was graded wrong due to a data quirk):
+### Correcting a single bet manually (Supabase SQL)
 
 ```sql
 -- Inspect the bet
 SELECT id, user_id, bet_type, bet_value, is_correct, points_awarded
-FROM bets
-WHERE id = '<bet-uuid>';
+FROM bets WHERE id = '<bet-uuid>';
 
--- Manually correct points
+-- Fix it
 UPDATE bets
-SET is_correct = true,
-    points_awarded = 100
+SET is_correct = true, points_awarded = 100
 WHERE id = '<bet-uuid>';
 
--- Rebuild leaderboard after manual edits (run this last)
--- (trigger via /admin → any scoring button, or npm run score:bets locally)
+-- Then rebuild leaderboard: /admin → click any scoring button
 ```
 
 ---
 
-### Fixture sync behaviour
+### Sync behaviour and admin_locked
 
 | Script | What it syncs | Respects admin_locked? |
 |--------|--------------|------------------------|
-| `sync:matches` | Teams, kickoff, stage, **and** scores/status | **Yes** — skips score/status for locked matches |
-| `sync:results` | Scores, first_scorer, cards (started matches only) | **Yes** — skips locked matches entirely |
-| `score:bets` | Evaluates unevaluated bets, rebuilds leaderboard | N/A |
+| `sync:matches` | Teams, kickoff, stage, scores, status | **Yes** — locked matches get `ignoreDuplicates` (no update) |
+| `sync:results` | Scores and status for started matches | **Yes** — skips locked matches entirely |
+| `score:bets` | Evaluates pending bets, rebuilds leaderboard | N/A |
 
-Running `sync:matches` manually is safe to re-run at any time — it's an upsert and will not overwrite admin-locked match scores.
+Setting **Admin-låst** on a match means the cron will never touch it again. Remember to uncheck it once you want the API to resume syncing.
 
 ---
 
-### Manual sync commands
+### Manual commands (run locally or via GitHub Actions → Run workflow)
 
 ```bash
-# Re-sync all fixtures (safe to re-run)
-npm run sync:matches
-
-# Re-sync scores for live/started matches
-npm run sync:results
-
-# Score all unevaluated match bets + rebuild leaderboard
-npm run score:bets
+npm run sync:matches   # re-sync all fixtures (safe to re-run, upsert)
+npm run sync:results   # update scores for started matches
+npm run score:bets     # score pending bets + rebuild leaderboard
 ```
 
 ---

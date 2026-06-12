@@ -22,6 +22,22 @@ interface FdoMatchesResponse {
   matches: FdoMatch[];
 }
 
+function buildRow(m: FdoMatch) {
+  const { stage, group_name } = mapStage(m.stage, m.group);
+  return {
+    external_id: m.id,
+    home_team:   toSwedish(m.homeTeam.name!),
+    away_team:   toSwedish(m.awayTeam.name!),
+    kickoff_at:  m.utcDate,
+    stage,
+    group_name,
+    status:      mapStatus(m.status),
+    home_score:  m.score.fullTime.home,
+    away_score:  m.score.fullTime.away,
+    updated_at:  new Date().toISOString(),
+  };
+}
+
 async function main() {
   console.log("Fetching WC 2026 fixtures from football-data.org...");
 
@@ -32,72 +48,51 @@ async function main() {
   // Skip knockout placeholders where teams haven't been determined yet.
   const matches = allMatches.filter((m) => m.homeTeam?.name && m.awayTeam?.name);
   const skipped = allMatches.length - matches.length;
-  if (skipped > 0) console.log(`  Skipping ${skipped} placeholder match(es) with TBD teams.`);
+  if (skipped > 0) {
+    console.log(`  Skipping ${skipped} placeholder match(es) with TBD teams.`);
+  }
 
-  // Collect admin-locked external_ids so we don't overwrite manual corrections.
+  // Fetch admin-locked external_ids — their scores/status must not be overwritten.
   const { data: lockedRows } = await supabase
     .from("matches")
     .select("external_id")
     .eq("admin_locked", true);
-  const lockedIds = new Set((lockedRows ?? []).map((r) => (r as { external_id: number }).external_id));
+  const lockedIds = new Set(
+    (lockedRows ?? []).map((r) => (r as { external_id: number }).external_id),
+  );
   if (lockedIds.size > 0) {
-    console.log(`  Skipping score/status for ${lockedIds.size} admin-locked match(es).`);
+    console.log(`  ${lockedIds.size} admin-locked match(es) will be left untouched.`);
   }
 
-  // ── Pass 1: fixture metadata for ALL matches (teams, kickoff, stage) ────────
-  const fixtureRows = matches.map((m) => {
-    const { stage, group_name } = mapStage(m.stage, m.group);
-    return {
-      external_id: m.id,
-      home_team:   toSwedish(m.homeTeam.name),
-      away_team:   toSwedish(m.awayTeam.name),
-      kickoff_at:  m.utcDate,
-      stage,
-      group_name,
-      updated_at:  new Date().toISOString(),
-    };
-  });
+  // ── Unlocked matches: full upsert (fixture + scores + status) ───────────────
+  const unlockedRows = matches.filter((m) => !lockedIds.has(m.id)).map(buildRow);
 
-  const { error: fixtureErr, count } = await supabase
-    .from("matches")
-    .upsert(fixtureRows, { onConflict: "external_id", count: "exact" });
-
-  if (fixtureErr) {
-    console.error("Fixture upsert failed:", fixtureErr.message);
-    process.exit(1);
-  }
-  console.log(`Synced fixture data for ${count ?? fixtureRows.length} matches.`);
-
-  // ── Pass 2: scores/status only for non-admin-locked matches ─────────────────
-  // home_team/away_team included so a new INSERT (if external_id is missing) satisfies NOT NULL.
-  const resultRows = matches
-    .filter((m) => !lockedIds.has(m.id))
-    .map((m) => ({
-      external_id: m.id,
-      home_team:   toSwedish(m.homeTeam.name!),
-      away_team:   toSwedish(m.awayTeam.name!),
-      status:      mapStatus(m.status),
-      home_score:  m.score.fullTime.home,
-      away_score:  m.score.fullTime.away,
-      updated_at:  new Date().toISOString(),
-    }));
-
-  if (resultRows.length > 0) {
-    const { error: resultErr } = await supabase
+  if (unlockedRows.length > 0) {
+    const { error, count } = await supabase
       .from("matches")
-      .upsert(resultRows, { onConflict: "external_id" });
-    if (resultErr) {
-      console.error("Score upsert failed:", resultErr.message);
-      process.exit(1);
-    }
-    console.log(`  Synced scores/status for ${resultRows.length} match(es).`);
+      .upsert(unlockedRows, { onConflict: "external_id", count: "exact" });
+    if (error) { console.error("Upsert failed (unlocked):", error.message); process.exit(1); }
+    console.log(`Synced ${count ?? unlockedRows.length} unlocked match(es).`);
+  }
+
+  // ── Locked matches: insert-only (ON CONFLICT DO NOTHING — never overwrite) ──
+  const lockedMatchRows = matches.filter((m) => lockedIds.has(m.id)).map(buildRow);
+
+  if (lockedMatchRows.length > 0) {
+    const { error } = await supabase
+      .from("matches")
+      .upsert(lockedMatchRows, { onConflict: "external_id", ignoreDuplicates: true });
+    if (error) { console.error("Upsert failed (locked):", error.message); process.exit(1); }
+    console.log(`Skipped ${lockedMatchRows.length} admin-locked match(es) (scores preserved).`);
   }
 
   // Summary by stage
-  const bystage = fixtureRows.reduce<Record<string, number>>((acc, r) => {
-    acc[r.stage] = (acc[r.stage] ?? 0) + 1;
+  const bystage = matches.reduce<Record<string, number>>((acc, m) => {
+    const { stage } = mapStage(m.stage, m.group);
+    acc[stage] = (acc[stage] ?? 0) + 1;
     return acc;
   }, {});
+  console.log("\nStage breakdown:");
   for (const [stage, n] of Object.entries(bystage)) {
     console.log(`  ${stage}: ${n}`);
   }
