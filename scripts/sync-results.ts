@@ -30,7 +30,7 @@ interface DbMatch {
 async function fetchDbStartedMatches(): Promise<DbMatch[]> {
   const cutoff = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
-  // Try with admin_locked (migration 005); fall back if column doesn't exist yet.
+  // Fetch matches that have kicked off based on external_id tracking layout
   const { data, error } = await supabase
     .from("matches")
     .select("id, external_id, admin_locked")
@@ -41,7 +41,7 @@ async function fetchDbStartedMatches(): Promise<DbMatch[]> {
   if (!error) return (data ?? []) as DbMatch[];
 
   if (error.message.includes("admin_locked") || error.message.includes("column")) {
-    console.warn("  admin_locked column missing (run migration 005) — treating all as unlocked.");
+    console.warn("  admin_locked column missing — treating all as unlocked.");
     const { data: fallback, error: fallbackErr } = await supabase
       .from("matches")
       .select("id, external_id")
@@ -57,13 +57,13 @@ async function fetchDbStartedMatches(): Promise<DbMatch[]> {
 }
 
 async function main() {
-  // 1. Fetch all WC match scores in one API call (free tier compatible)
+  // 1. Fetch all WC match scores in one API call
   console.log("Fetching all WC 2026 scores from football-data.org...");
   const apiData = await fdoFetch<FdoMatchesResponse>("/competitions/WC/matches?season=2026");
   const apiById = new Map(apiData.matches.map((m) => [m.id, m]));
   console.log(`  Got ${apiData.matches.length} matches from API.`);
 
-  // 2. Find DB matches that have started and aren't yet settled
+  // 2. Find DB matches that have started
   const dbMatches = await fetchDbStartedMatches();
   if (!dbMatches.length) { console.log("No matches started yet."); return; }
   console.log(`Updating ${dbMatches.length} started match(es)...`);
@@ -75,6 +75,7 @@ async function main() {
       continue;
     }
 
+    // CRITICAL FIX: Look up the match in the API using external_id, NOT internal sequential IDs!
     const apiMatch = apiById.get(dbMatch.external_id);
     if (!apiMatch) {
       console.warn(`  Match ${dbMatch.external_id}: not found in API response.`);
@@ -85,14 +86,13 @@ async function main() {
     const homeScore = apiMatch.score.fullTime.home;
     const awayScore = apiMatch.score.fullTime.away;
 
-    // DATA MAP PROTECTION: Don't set a match to finished unless scores are validated
     let verifiedStatus = calculatedStatus;
     if (calculatedStatus === "finished" && (homeScore === null || awayScore === null)) {
       console.warn(`  Match ${dbMatch.external_id} marked complete by API but goals count missing. Holding status as live.`);
       verifiedStatus = "live";
     }
 
-    // Perform cleanly typed update interaction directly matching table constraints
+    // Update the database record matching our internal primary key ID
     const { error } = await supabase
       .from("matches")
       .update({

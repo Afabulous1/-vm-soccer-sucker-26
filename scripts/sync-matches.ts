@@ -26,6 +26,8 @@ interface DbMatchReference {
   external_id: number;
   status: string;
   admin_locked: boolean | null;
+  home_score: number | null;
+  away_score: number | null;
 }
 
 function buildRow(m: FdoMatch) {
@@ -58,10 +60,10 @@ async function main() {
     console.log(`  Skipping ${skipped} placeholder match(es) with TBD teams.`);
   }
 
-  // Fetch ALL matches that already have an established records in our DB
+  // Fetch ALL matches that already have established records in our DB
   const { data: existingMatches, error: fetchErr } = await supabase
     .from("matches")
-    .select("external_id, status, admin_locked");
+    .select("external_id, status, admin_locked, home_score, away_score");
 
   if (fetchErr) {
     console.error("Failed to query existing database matches layout:", fetchErr.message);
@@ -87,14 +89,13 @@ async function main() {
 
     const row = buildRow(m);
 
-    // CRITICAL FIX: If a match has already started or finished in our DB, 
-    // do NOT let this structural script roll back its live scores or status values!
+    // FIX: Instead of deleting properties and sending 'null' fields,
+    // explicitly assign their current database values to pass the NOT NULL constraint.
     if (existing && (existing.status === "live" || existing.status === "finished")) {
       protectedLiveMatches++;
-      // Remove these fields so the upsert only adjusts static metadata (e.g. kickoff adjustments, stage names)
-      delete (row as any).status;
-      delete (row as any).home_score;
-      delete (row as any).away_score;
+      row.status = existing.status;
+      row.home_score = existing.home_score;
+      row.away_score = existing.away_score;
     }
 
     rowsToUpsert.push(row);
