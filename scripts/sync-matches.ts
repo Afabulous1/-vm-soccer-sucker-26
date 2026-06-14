@@ -89,8 +89,8 @@ async function main() {
 
     const row = buildRow(m);
 
-    // FIX: Instead of deleting properties and sending 'null' fields,
-    // explicitly assign their current database values to pass the NOT NULL constraint.
+    // Structural protection rule: Keep current database statuses/scores 
+    // for live/finished matches to bypass constraint errors cleanly.
     if (existing && (existing.status === "live" || existing.status === "finished")) {
       protectedLiveMatches++;
       row.status = existing.status;
@@ -108,7 +108,7 @@ async function main() {
     console.log(`  Protected scores/statuses for ${protectedLiveMatches} active or finished match(es).`);
   }
 
-  // ── Execute Upsert ────────────────────────────────────────────────────────
+  // ── Execute Database Upsert ───────────────────────────────────────────────
   if (rowsToUpsert.length > 0) {
     const { error, count } = await supabase
       .from("matches")
@@ -121,7 +121,7 @@ async function main() {
     console.log(`Synced ${count ?? rowsToUpsert.length} match records layout parameters successfully.`);
   }
 
-  // Summary by stage
+  // Summary breakdown log by stage
   const bystage = matches.reduce<Record<string, number>>((acc, m) => {
     const { stage } = mapStage(m.stage, m.group);
     acc[stage] = (acc[stage] ?? 0) + 1;

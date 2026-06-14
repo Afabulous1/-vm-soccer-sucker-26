@@ -1,5 +1,5 @@
+// scripts/fixtures.ts
 // WC 2026 — 72 group-stage fixtures, kickoff in UTC, teams in Swedish.
-// Source: official CEST schedule (CEST = UTC+2).
 // All IDs aligned directly with football-data.org external identifiers.
 
 export interface FixtureRow {
@@ -60,7 +60,7 @@ export function buildGroupStageFixtures(): FixtureRow[] {
     f(537335, "Schweiz", "Bosnien-Hercegovina", "2026-06-18T19:00:00Z", "B"),
     f(537336, "Kanada", "Qatar", "2026-06-18T22:00:00Z", "B"),
     f(537330, "Mexiko", "Sydkorea", "2026-06-19T01:00:00Z", "A"),
-    f(537349, "USA", "Australien", "2026-06-19T19:00:00Z", "D"),
+    f(537449, "USA", "Australien", "2026-06-19T19:00:00Z", "D"),
     f(537342, "Skottland", "Marocko", "2026-06-19T22:00:00Z", "C"),
     f(537341, "Brasilien", "Haiti", "2026-06-20T01:00:00Z", "C"),
     f(537347, "Turkiet", "Paraguay", "2026-06-20T04:00:00Z", "D"),
@@ -95,8 +95,8 @@ export function buildGroupStageFixtures(): FixtureRow[] {
     f(537345, "Paraguay", "Australien", "2026-06-26T01:00:00Z", "D"),
     f(537395, "Norge", "Frankrike", "2026-06-26T19:00:00Z", "I"),
     f(537396, "Senegal", "Irak", "2026-06-26T19:00:00Z", "I"),
-    f(537373, "Kap Verde", "Saudiarabien", "2026-06-27+00:00:00Z", "H"),
-    f(537374, "Uruguay", "Spanien", "2026-06-27+00:00:00Z", "H"),
+    f(537373, "Kap Verde", "Saudiarabien", "2026-06-27T00:00:00Z", "H"),
+    f(537374, "Uruguay", "Spanien", "2026-06-27T00:00:00Z", "H"),
     f(537367, "Egypten", "Iran", "2026-06-27T03:00:00Z", "G"),
     f(537368, "Nya Zeeland", "Belgien", "2026-06-27T03:00:00Z", "G"),
     f(537414, "Panama", "England", "2026-06-27T22:00:00Z", "L"),
